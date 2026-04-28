@@ -217,11 +217,65 @@
       border-radius: 50%;
       pointer-events: none;
     }
-    .r-common    { display: none; }
+    .r-common    { background: #9ca3af; }
     .r-uncommon  { background: #4ade80; }
     .r-rare      { background: #60a5fa; }
     .r-epic      { background: #c084fc; }
     .r-legendary { background: #facc15; box-shadow: 0 0 5px #facc15; }
+
+    /* Rarity legend row (above collection grid) */
+    .rarity-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 10px;
+      justify-content: center;
+      padding: 0 4px 12px;
+      width: 100%;
+    }
+    .rarity-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.2px;
+    }
+    .rarity-legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .rarity-legend-dot.rl-legendary { background: #facc15; box-shadow: 0 0 4px #facc15; }
+    .rarity-legend-dot.rl-epic      { background: #c084fc; }
+    .rarity-legend-dot.rl-rare      { background: #60a5fa; }
+    .rarity-legend-dot.rl-uncommon  { background: #4ade80; }
+    .rarity-legend-dot.rl-common    { background: #9ca3af; }
+
+    /* Emoji detail panel */
+    #panel-emoji-detail .detail-emoji {
+      font-size: 96px;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    #panel-emoji-detail .detail-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+    #panel-emoji-detail .detail-rarity-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 5px 16px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+      border: 1.5px solid;
+    }
+    .emoji-cell {
+      cursor: pointer;
+    }
 
     #hint {
       position: fixed;
@@ -283,6 +337,14 @@
         <div class="emoji-grid" id="coll-grid"></div>
       </div>
       <button id="btn-coll-back" class="btn-ghost">← Back</button>
+    </div>
+
+    <!-- Emoji detail panel -->
+    <div id="panel-emoji-detail" class="panel" style="display:none">
+      <div class="detail-emoji" id="detail-emoji-char"></div>
+      <div class="detail-name" id="detail-emoji-name"></div>
+      <div class="detail-rarity-badge" id="detail-rarity-badge"></div>
+      <button id="btn-detail-back" class="btn-ghost">← Back to Collection</button>
     </div>
 
     <!-- Settings panel -->
@@ -381,6 +443,131 @@
       legendary: '#facc15',
     };
 
+    /** Human-readable names for every emoji in the game */
+    const EMOJI_NAMES = {
+      // Faces
+      '😀':'Grinning Face','😃':'Grinning Face with Big Eyes','😄':'Grinning Face with Smiling Eyes',
+      '😁':'Beaming Face with Smiling Eyes','😆':'Grinning Squinting Face','😅':'Grinning Face with Sweat',
+      '🤣':'Rolling on the Floor Laughing','😂':'Face with Tears of Joy','🙂':'Slightly Smiling Face',
+      '😊':'Smiling Face with Smiling Eyes','😇':'Smiling Face with Halo','🥰':'Smiling Face with Hearts',
+      '😍':'Smiling Face with Heart-Eyes','🤩':'Star-Struck','😘':'Face Blowing a Kiss',
+      '😋':'Face Savoring Food','😛':'Face with Tongue','😜':'Winking Face with Tongue',
+      '🤪':'Zany Face','😝':'Squinting Face with Tongue','🤑':'Money-Mouth Face',
+      '🤗':'Smiling Face with Open Hands','🤭':'Face with Hand Over Mouth','🤫':'Shushing Face',
+      '🤔':'Thinking Face','🧐':'Face with Monocle','😎':'Smiling Face with Sunglasses',
+      '🥳':'Partying Face','🥸':'Disguised Face','😏':'Smirking Face','😒':'Unamused Face',
+      '🙄':'Face with Rolling Eyes','😬':'Grimacing Face','😌':'Relieved Face',
+      '😔':'Pensive Face','😪':'Sleepy Face','😵':'Dizzy Face','🤯':'Exploding Head',
+      '🤠':'Cowboy Hat Face','😕':'Confused Face','🙁':'Slightly Frowning Face',
+      '☹️':'Frowning Face','😦':'Frowning Face with Open Mouth','😧':'Anguished Face',
+      '😨':'Fearful Face','😱':'Face Screaming in Fear','😡':'Enraged Face','😠':'Angry Face',
+      '🤬':'Face with Symbols on Mouth','😈':'Smiling Face with Horns','👿':'Angry Face with Horns',
+      '💀':'Skull','☠️':'Skull and Crossbones','💩':'Pile of Poo','🤡':'Clown Face',
+      '👹':'Ogre','👺':'Goblin','👻':'Ghost','👽':'Alien','👾':'Alien Monster','🤖':'Robot',
+      '😺':'Grinning Cat','😸':'Grinning Cat with Smiling Eyes','😹':'Cat with Tears of Joy',
+      '😻':'Smiling Cat with Heart-Eyes','😼':'Cat with Wry Smile','😽':'Kissing Cat',
+      '🙀':'Weary Cat','😿':'Crying Cat','😾':'Pouting Cat','🫠':'Melting Face',
+      '🫡':'Saluting Face','🫢':'Face with Open Eyes and Hand Over Mouth','🫣':'Face with Peeking Eye',
+      '🥹':'Face Holding Back Tears','😤':'Face with Steam from Nose','😩':'Weary Face',
+      '😫':'Tired Face','🥱':'Yawning Face','🤥':'Lying Face','🤤':'Drooling Face',
+      '🤢':'Nauseated Face','🤮':'Face Vomiting','🤧':'Sneezing Face','🥵':'Hot Face',
+      '🥶':'Cold Face','🥴':'Woozy Face','🤕':'Face with Head-Bandage','🤒':'Face with Thermometer',
+      '😷':'Face with Medical Mask',
+      // Food
+      '🍎':'Red Apple','🍊':'Tangerine','🍋':'Lemon','🍇':'Grapes','🍓':'Strawberry',
+      '🫐':'Blueberries','🍒':'Cherries','🍑':'Peach','🥭':'Mango','🍍':'Pineapple',
+      '🥥':'Coconut','🥝':'Kiwi Fruit','🍅':'Tomato','🥑':'Avocado','🥦':'Broccoli',
+      '🥬':'Leafy Greens','🥒':'Cucumber','🌶️':'Hot Pepper','🌽':'Ear of Corn','🥕':'Carrot',
+      '🧄':'Garlic','🧅':'Onion','🥐':'Croissant','🥖':'Baguette Bread','🫓':'Flatbread',
+      '🧀':'Cheese Wedge','🥚':'Egg','🥞':'Pancakes','🧇':'Waffle','🥓':'Bacon',
+      '🥩':'Cut of Meat','🍗':'Poultry Leg','🍖':'Meat on Bone','🌮':'Taco','🌯':'Burrito',
+      '🍝':'Spaghetti','🍜':'Steaming Bowl','🍲':'Pot of Food','🍛':'Curry Rice','🍣':'Sushi',
+      '🍱':'Bento Box','🥟':'Dumpling','🍤':'Fried Shrimp','🍙':'Rice Ball','🍚':'Cooked Rice',
+      '🥮':'Moon Cake','🧁':'Cupcake','🎂':'Birthday Cake','🍰':'Shortcake','🍮':'Custard',
+      '🍭':'Lollipop','🍬':'Candy','🍫':'Chocolate Bar','🍿':'Popcorn','🍩':'Doughnut',
+      '🍪':'Cookie','🍯':'Honey Pot','🍺':'Beer Mug','🍸':'Cocktail Glass','🍹':'Tropical Drink',
+      '🥤':'Cup with Straw','🧋':'Bubble Tea','☕':'Hot Beverage','🍵':'Teacup Without Handle',
+      '🧃':'Beverage Box','🥛':'Glass of Milk','🥂':'Clinking Glasses',
+      '🍾':'Bottle with Popping Cork','🍷':'Wine Glass','🥗':'Green Salad','🫙':'Jar',
+      '🥫':'Canned Food','🥙':'Stuffed Flatbread','🧆':'Falafel','🥘':'Shallow Pan of Food',
+      '🫕':'Fondue','🥣':'Bowl with Spoon','🥧':'Pie','🍼':'Baby Bottle',
+      '🫗':'Pouring Liquid','🍶':'Sake','🫖':'Teapot',
+      // Animals
+      '🐶':'Dog Face','🐱':'Cat Face','🐭':'Mouse Face','🐹':'Hamster','🐰':'Rabbit Face',
+      '🦊':'Fox','🐻':'Bear','🐼':'Panda','🐨':'Koala','🐯':'Tiger Face','🦁':'Lion',
+      '🐮':'Cow Face','🐷':'Pig Face','🐸':'Frog','🐵':'Monkey Face','🙈':'See-No-Evil Monkey',
+      '🙉':'Hear-No-Evil Monkey','🙊':'Speak-No-Evil Monkey','🐔':'Chicken','🐧':'Penguin',
+      '🐦':'Bird','🦆':'Duck','🦅':'Eagle','🦉':'Owl','🦇':'Bat','🐺':'Wolf',
+      '🐴':'Horse Face','🦄':'Unicorn','🐝':'Honeybee','🦋':'Butterfly','🐌':'Snail',
+      '🐞':'Lady Beetle','🦟':'Mosquito','🕷️':'Spider','🦂':'Scorpion','🐢':'Turtle',
+      '🐍':'Snake','🦎':'Lizard','🦖':'T-Rex','🦕':'Sauropod','🐙':'Octopus','🦑':'Squid',
+      '🦐':'Shrimp','🦀':'Crab','🐠':'Tropical Fish','🐟':'Fish','🐬':'Dolphin','🐳':'Whale',
+      '🦈':'Shark','🐊':'Crocodile','🐅':'Tiger','🐆':'Leopard','🦓':'Zebra','🐘':'Elephant',
+      '🦛':'Hippopotamus','🦏':'Rhinoceros','🐪':'Camel','🦒':'Giraffe','🦘':'Kangaroo',
+      '🐎':'Horse','🐑':'Ewe','🦙':'Llama','🐐':'Goat','🦌':'Deer','🐕':'Dog','🐈':'Cat',
+      '🐓':'Rooster','🦃':'Turkey','🦚':'Peacock','🦜':'Parrot','🦢':'Swan','🦩':'Flamingo',
+      '🕊️':'Dove','🐇':'Rabbit','🦝':'Raccoon','🦨':'Skunk','🦦':'Otter','🦥':'Sloth',
+      '🐁':'Mouse','🐿️':'Chipmunk','🦔':'Hedgehog','🦬':'Bison','🦣':'Mammoth',
+      '🦤':'Dodo','🪲':'Beetle','🪳':'Cockroach','🪰':'Fly','🪱':'Worm','🦭':'Seal',
+      '🦫':'Beaver','🐾':'Paw Prints',
+      // Nature
+      '🌸':'Cherry Blossom','🌺':'Hibiscus','🌻':'Sunflower','🌹':'Rose','🌷':'Tulip',
+      '💐':'Bouquet','🌼':'Blossom','🪷':'Lotus','🌿':'Herb','☘️':'Shamrock','🍀':'Four-Leaf Clover',
+      '🍁':'Maple Leaf','🍂':'Fallen Leaf','🍃':'Leaf Fluttering in Wind','🌱':'Seedling',
+      '🌲':'Evergreen Tree','🌳':'Deciduous Tree','🌴':'Palm Tree','🪨':'Rock','🪵':'Wood',
+      '🌵':'Cactus','🎋':'Tanabata Tree','🌾':'Sheaf of Rice','🍄':'Mushroom','🌊':'Water Wave',
+      '🌈':'Rainbow','⭐':'Star','🌟':'Glowing Star','✨':'Sparkles','💫':'Dizzy',
+      '⚡':'Lightning','🔥':'Fire','💧':'Droplet','🌙':'Crescent Moon','☀️':'Sun',
+      '❄️':'Snowflake','☃️':'Snowman','⛄':'Snowman Without Snow','🌪️':'Tornado',
+      '🌝':'Full Moon Face','🌚':'New Moon Face','🌕':'Full Moon','🌠':'Shooting Star',
+      '☄️':'Comet','🪐':'Ringed Planet','🏔️':'Snow-Capped Mountain','⛰️':'Mountain',
+      '🌋':'Volcano','🏝️':'Desert Island','🌅':'Sunrise over Mountains','🌄':'Sunrise',
+      '🎇':'Sparkler','🎆':'Fireworks','🌃':'Night with Stars','🌌':'Milky Way',
+      '🌬️':'Wind Face','🌫️':'Fog','⛅':'Sun Behind Cloud','🌤️':'Sun Behind Small Cloud',
+      '🌦️':'Sun Behind Rain Cloud','🌧️':'Cloud with Rain','⛈️':'Cloud with Lightning and Rain',
+      '🌩️':'Cloud with Lightning','🌨️':'Cloud with Snow','🌑':'New Moon','🌒':'Waxing Crescent Moon',
+      '🌓':'First Quarter Moon','🌔':'Waxing Gibbous Moon',
+      // Objects
+      '⚽':'Soccer Ball','🏀':'Basketball','🏈':'American Football','⚾':'Baseball',
+      '🎾':'Tennis','🏐':'Volleyball','🎱':'Pool 8 Ball','🎯':'Bullseye','🎲':'Game Die',
+      '🎮':'Video Game','🕹️':'Joystick','🧩':'Puzzle Piece','🎸':'Guitar','🎺':'Trumpet',
+      '🎷':'Saxophone','🎹':'Musical Keyboard','🥁':'Drum','🎵':'Musical Note',
+      '🎶':'Musical Notes','🎤':'Microphone','🎧':'Headphones','📱':'Mobile Phone',
+      '💻':'Laptop','⌚':'Watch','📷':'Camera','🔭':'Telescope','🔬':'Microscope',
+      '💡':'Light Bulb','🔦':'Flashlight','🕯️':'Candle','🪔':'Diya Lamp','🧲':'Magnet',
+      '💊':'Pill','💉':'Syringe','🔑':'Key','🗝️':'Old Key','💎':'Gem Stone','💍':'Ring',
+      '👑':'Crown','🏆':'Trophy','🥇':'1st Place Medal','🎖️':'Military Medal',
+      '🎗️':'Reminder Ribbon','🎫':'Ticket','🎪':'Circus Tent','🎡':'Ferris Wheel',
+      '🎢':'Roller Coaster','🎠':'Carousel Horse','🎭':'Performing Arts','🎨':'Artist Palette',
+      '🪆':'Nesting Dolls','🧸':'Teddy Bear','🪅':'Piñata','🎀':'Ribbon','🎁':'Wrapped Gift',
+      '🎊':'Confetti Ball','🎉':'Party Popper','🎈':'Balloon','🔮':'Crystal Ball',
+      '🧿':'Nazar Amulet','🪄':'Magic Wand','⚜️':'Fleur-de-Lis','🏵️':'Rosette',
+      '🎎':'Japanese Dolls','🎐':'Wind Chime','🎑':'Moon Viewing Ceremony','🧧':'Red Envelope',
+      '🪬':'Hamsa','🪩':'Mirror Ball','🪞':'Mirror','🪟':'Window','🛋️':'Couch and Lamp',
+      '🚪':'Door','🪣':'Bucket','🧺':'Basket','🧻':'Roll of Paper','🧼':'Soap',
+      '🪥':'Toothbrush','🫧':'Bubbles','⚗️':'Alembic','🧪':'Test Tube','🧫':'Petri Dish',
+      '🧬':'DNA',
+      // Symbols
+      '❤️':'Red Heart','🧡':'Orange Heart','💛':'Yellow Heart','💚':'Green Heart',
+      '💙':'Blue Heart','💜':'Purple Heart','🖤':'Black Heart','🤍':'White Heart',
+      '🤎':'Brown Heart','💔':'Broken Heart','❣️':'Heart Exclamation','💕':'Two Hearts',
+      '💞':'Revolving Hearts','💓':'Beating Heart','💗':'Growing Heart','💖':'Sparkling Heart',
+      '💘':'Heart with Arrow','💝':'Heart with Ribbon','💟':'Heart Decoration',
+      '🔴':'Red Circle','🟠':'Orange Circle','🟡':'Yellow Circle','🟢':'Green Circle',
+      '🔵':'Blue Circle','🟣':'Purple Circle','⚫':'Black Circle','⚪':'White Circle',
+      '🟤':'Brown Circle','💠':'Diamond with a Dot','🔶':'Large Orange Diamond',
+      '🔷':'Large Blue Diamond','🔸':'Small Orange Diamond','🔹':'Small Blue Diamond',
+      '🔺':'Red Triangle Pointed Up','🔻':'Red Triangle Pointed Down','♠️':'Spade Suit',
+      '♥️':'Heart Suit','♦️':'Diamond Suit','♣️':'Club Suit','🃏':'Joker','🀄':'Mahjong Red Dragon',
+      '🎴':'Flower Playing Cards','💯':'Hundred Points','✅':'Check Mark Button',
+      '❎':'Cross Mark Button','⭕':'Red Circle','❌':'Cross Mark','❓':'Red Question Mark',
+      '❗':'Red Exclamation Mark','💥':'Collision','💢':'Anger Symbol','💦':'Sweat Droplets',
+      '💨':'Dashing Away','💤':'Zzz','🕳️':'Hole','🌀':'Cyclone','🔔':'Bell','🔕':'Bell with Slash',
+      '📌':'Pushpin','📍':'Round Pushpin','🔖':'Bookmark','🏷️':'Label','💬':'Speech Balloon',
+      '💭':'Thought Balloon','🗨️':'Left Speech Bubble','🗯️':'Right Anger Bubble',
+      '📣':'Megaphone','📢':'Loudspeaker',
+    };
+
     /** Specific emojis that are elevated above their pool default */
     const RARITY_OVERRIDES = {
       // legendary
@@ -472,6 +659,7 @@
     const panelPause  = document.getElementById('panel-pause');
     const panelColl   = document.getElementById('panel-collection');
     const panelSett   = document.getElementById('panel-settings');
+    const panelDetail = document.getElementById('panel-emoji-detail');
     const startFace   = document.getElementById('start-face');
     const btnStart    = document.getElementById('btn-start');
     const btnRestart  = document.getElementById('btn-restart');
@@ -483,12 +671,16 @@
     const btnSett     = document.getElementById('btn-settings');
     const btnCollBack = document.getElementById('btn-coll-back');
     const btnSettBack = document.getElementById('btn-settings-back');
+    const btnDetailBack = document.getElementById('btn-detail-back');
     const collCount   = document.getElementById('coll-count');
     const collGrid    = document.getElementById('coll-grid');
     const headInput   = document.getElementById('head-input');
     const hintEl      = document.getElementById('hint');
+    const detailEmojiChar  = document.getElementById('detail-emoji-char');
+    const detailEmojiName  = document.getElementById('detail-emoji-name');
+    const detailRarityBadge = document.getElementById('detail-rarity-badge');
 
-    const ALL_PANELS  = [panelStart, panelOver, panelPause, panelColl, panelSett];
+    const ALL_PANELS  = [panelStart, panelOver, panelPause, panelColl, panelSett, panelDetail];
 
     // ═══════════════════════════════════════════════════
     //  CONFIGURATION
@@ -624,6 +816,44 @@
     //  COLLECTION UI
     // ═══════════════════════════════════════════════════
 
+    const RARITY_TIERS = [
+      { key: 'legendary', label: 'Legendary' },
+      { key: 'epic',      label: 'Epic' },
+      { key: 'rare',      label: 'Rare' },
+      { key: 'uncommon',  label: 'Uncommon' },
+      { key: 'common',    label: 'Common' },
+    ];
+
+    function buildRarityLegend() {
+      const legend = document.createElement('div');
+      legend.className = 'rarity-legend';
+      for (const { key, label } of RARITY_TIERS) {
+        const item = document.createElement('div');
+        item.className = 'rarity-legend-item';
+        const dot = document.createElement('span');
+        dot.className = 'rarity-legend-dot rl-' + key;
+        const text = document.createElement('span');
+        text.textContent = label;
+        item.appendChild(dot);
+        item.appendChild(text);
+        legend.appendChild(item);
+      }
+      return legend;
+    }
+
+    function openEmojiDetail(emoji) {
+      const rarity = getRarity(emoji);
+      const color  = RARITY_COLORS[rarity];
+      const label  = rarity.charAt(0).toUpperCase() + rarity.slice(1);
+      detailEmojiChar.textContent  = emoji;
+      detailEmojiName.textContent  = EMOJI_NAMES[emoji] || 'Unknown Emoji';
+      detailRarityBadge.textContent = label;
+      detailRarityBadge.style.color       = color;
+      detailRarityBadge.style.borderColor = color + '99';
+      detailRarityBadge.style.background  = color + '18';
+      showPanel(panelDetail);
+    }
+
     function buildCollectionGrid() {
       collGrid.innerHTML = '';
       const RARITY_ORDER = { legendary: 0, epic: 1, rare: 2, uncommon: 3, common: 4 };
@@ -634,6 +864,8 @@
       collCount.textContent = n === 0
         ? 'No emojis collected yet'
         : n + ' unique emoji' + (n !== 1 ? 's' : '') + ' collected';
+
+      collGrid.appendChild(buildRarityLegend());
 
       if (n === 0) {
         const msg = document.createElement('div');
@@ -647,12 +879,11 @@
         const cell   = document.createElement('div');
         cell.className   = 'emoji-cell';
         cell.textContent = e;
-        if (rarity !== 'common') {
-          cell.style.borderColor = RARITY_COLORS[rarity] + '66';
-        }
+        cell.style.borderColor = RARITY_COLORS[rarity] + '66';
         const dot = document.createElement('span');
         dot.className = 'rarity-dot r-' + rarity;
         cell.appendChild(dot);
+        cell.addEventListener('click', () => openEmojiDetail(e));
         collGrid.appendChild(cell);
       }
     }
@@ -1186,10 +1417,11 @@
     bind(btnResume,   () => resumeGame());
     bind(btnQuit,     () => quitToMenu());
     bind(btnToMenu,   () => quitToMenu());
-    bind(btnColl,     () => { buildCollectionGrid(); showPanel(panelColl); });
-    bind(btnSett,     () => { headInput.value = savedHead; showPanel(panelSett); setTimeout(() => headInput.focus(), 50); });
-    bind(btnCollBack, () => showPanel(panelStart));
-    bind(btnSettBack, () => showPanel(panelStart));
+    bind(btnColl,       () => { buildCollectionGrid(); showPanel(panelColl); });
+    bind(btnSett,       () => { headInput.value = savedHead; showPanel(panelSett); setTimeout(() => headInput.focus(), 50); });
+    bind(btnCollBack,   () => showPanel(panelStart));
+    bind(btnSettBack,   () => showPanel(panelStart));
+    bind(btnDetailBack, () => { buildCollectionGrid(); showPanel(panelColl); });
 
     // ═══════════════════════════════════════════════════
     //  BOOT
