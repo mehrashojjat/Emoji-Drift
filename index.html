@@ -148,7 +148,7 @@
     .btn-ghost:last-child { margin-bottom: 0; }
     .btn-ghost:active { transform: scale(0.93); opacity: 0.72; }
 
-    /* Emoji grids */
+    /* Emoji grids (collection panel) */
     .emoji-scroll {
       flex: 1;
       overflow-y: auto;
@@ -171,16 +171,41 @@
       border-radius: 10px;
       background: rgba(255,255,255,0.06);
       border: 2px solid rgba(255,255,255,0.08);
-      cursor: pointer;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
-      transition: transform 0.1s, border-color 0.15s;
+      transition: border-color 0.15s;
       flex-shrink: 0;
     }
-    .emoji-cell:active { transform: scale(0.85); }
-    .emoji-cell.selected {
+
+    /* Emoji text input (settings) */
+    .emoji-input-wrap {
+      margin: 16px 0 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    #head-input {
+      font-size: 56px;
+      line-height: 1;
+      width: 96px; height: 96px;
+      text-align: center;
+      background: rgba(255,255,255,0.07);
+      border: 2px solid rgba(255,255,255,0.18);
+      border-radius: 20px;
+      color: #fff;
+      caret-color: transparent;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #head-input:focus {
       border-color: #7c3aed;
-      background: rgba(124,58,237,0.22);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.35);
+    }
+    .emoji-input-hint {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.3px;
     }
 
     /* Rarity dot indicator */
@@ -260,11 +285,14 @@
     </div>
 
     <!-- Settings panel -->
-    <div id="panel-settings" class="panel panel-wide" style="display:none">
+    <div id="panel-settings" class="panel" style="display:none">
       <div class="p-title">⚙️ Settings</div>
-      <div class="p-sub">Tap an emoji to set your snake's head</div>
-      <div class="emoji-scroll">
-        <div class="emoji-grid" id="head-grid"></div>
+      <div class="p-sub">Type or paste any emoji as your snake's head</div>
+      <div class="emoji-input-wrap">
+        <input id="head-input" type="text" inputmode="text" autocomplete="off"
+               autocorrect="off" autocapitalize="off" spellcheck="false"
+               placeholder="😀" maxlength="10" />
+        <span class="emoji-input-hint">Only the first emoji will be used</span>
       </div>
       <button id="btn-settings-back" class="btn-ghost">← Back</button>
     </div>
@@ -283,7 +311,7 @@
     const FACE_POOL = [
       '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘',
       '😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🧐','😎','🥳','🥸','😏',
-      '😒','🙄','😬','😌','😔','😪','😵','🤯','🤠','😕','🙁','☹️','😦','😧','��',
+      '😒','🙄','😬','😌','😔','😪','😵','🤯','🤠','😕','🙁','☹️','😦','😧','😨',
       '😱','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾',
       '🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🫠','🫡','🫢','🫣','🥹',
       '😤','😩','😫','🥱','🤥','🤤','🤢','🤮','🤧','🥵','🥶','🥴','🤕','🤒','😷',
@@ -317,10 +345,10 @@
       ],
       objects: [
         '⚽','🏀','🏈','⚾','🎾','🏐','🎱','🎯','🎲','🎮','🕹️','🧩','🎸','🎺',
-        '🎷','🎹','🥁','🎵','��','🎤','🎧','📱','💻','⌚','📷','🔭','🔬','💡',
+        '🎷','🎹','🥁','🎵','🎶','🎤','🎧','📱','💻','⌚','📷','🔭','🔬','💡',
         '🔦','🕯️','🪔','🧲','💊','💉','🔑','🗝️','💎','💍','👑','🏆','🥇','🎖️',
         '🎗️','🎫','🎪','🎡','🎢','🎠','🎭','🎨','🪆','🧸','🪅','🎀','🎁','🎊',
-        '🎉','🎈','🔮','🧿','🪄','⚜️','🏵️','��','🎐','🎑','🧧','🪬','🪩','🪞',
+        '🎉','🎈','🔮','🧿','🪄','⚜️','🏵️','🎎','🎐','🎑','🧧','🪬','🪩','🪞',
         '🪟','🛋️','🚪','🪣','🧺','🧻','🧼','🪥','🫧','⚗️','🧪','🧫','🧬',
       ],
       symbols: [
@@ -328,7 +356,7 @@
         '💗','💖','💘','💝','💟','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤',
         '💠','🔶','🔷','🔸','🔹','🔺','🔻','♠️','♥️','♦️','♣️','🃏','🀄','🎴',
         '💯','✅','❎','⭕','❌','❓','❗','💥','💢','💫','💦','💨','💤','🕳️',
-        '🌀','🔔','🔕','📌','📍','🔖','🏷️','💬','💭','🗨️','🗯️','��','📢',
+        '🌀','🔔','🔕','📌','📍','🔖','🏷️','💬','💭','🗨️','🗯️','📣','📢',
       ],
     };
 
@@ -456,7 +484,7 @@
     const btnSettBack = document.getElementById('btn-settings-back');
     const collCount   = document.getElementById('coll-count');
     const collGrid    = document.getElementById('coll-grid');
-    const headGrid    = document.getElementById('head-grid');
+    const headInput   = document.getElementById('head-input');
     const hintEl      = document.getElementById('hint');
 
     const ALL_PANELS  = [panelStart, panelOver, panelPause, panelColl, panelSett];
@@ -500,7 +528,7 @@
     function loadPersist() {
       try {
         const h = localStorage.getItem(LS_HEAD);
-        savedHead = (h && FACE_SET.has(h)) ? h : null;
+        savedHead = (h && firstGrapheme(h)) ? h : null;
       } catch { savedHead = null; }
       if (!savedHead) {
         savedHead = FACE_POOL[Math.floor(Math.random() * FACE_POOL.length)];
@@ -559,28 +587,36 @@
     //  SETTINGS UI — head picker grid
     // ═══════════════════════════════════════════════════
 
-    function buildHeadGrid() {
-      headGrid.innerHTML = '';
-      for (const e of FACE_POOL) {
-        const cell = document.createElement('div');
-        cell.className = 'emoji-cell' + (e === savedHead ? ' selected' : '');
-        cell.textContent = e;
-        const rarity = getRarity(e);
-        const dot = document.createElement('span');
-        dot.className = 'rarity-dot r-' + rarity;
-        cell.appendChild(dot);
-
-        const pick = () => {
-          savedHead = e;
-          savePersist();
-          startFace.textContent = e;
-          headGrid.querySelectorAll('.emoji-cell').forEach(c => c.classList.remove('selected'));
-          cell.classList.add('selected');
-        };
-        cell.addEventListener('click', pick);
-        cell.addEventListener('touchend', ev => { ev.preventDefault(); pick(); }, { passive: false });
-        headGrid.appendChild(cell);
+    // ── Settings: single-emoji text input ────────────
+    //  Extract the first grapheme cluster from an arbitrary string.
+    //  Falls back to the first Unicode code point when Intl.Segmenter is unavailable.
+    function firstGrapheme(str) {
+      if (!str) return '';
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        const seg = new Intl.Segmenter();
+        for (const { segment } of seg.segment(str)) return segment;
       }
+      // Fallback: iterate code points and grab the first
+      const cp = str.codePointAt(0);
+      return cp !== undefined ? String.fromCodePoint(cp) : str[0];
+    }
+
+    function initHeadInput() {
+      headInput.value = savedHead;
+      headInput.addEventListener('input', () => {
+        const raw   = headInput.value;
+        const first = firstGrapheme(raw);
+        headInput.value = first;
+        if (first && first !== savedHead) {
+          savedHead = first;
+          savePersist();
+          startFace.textContent = savedHead;
+        }
+      });
+      // On mobile keyboards that fire compositionend instead of input:
+      headInput.addEventListener('compositionend', () => {
+        headInput.dispatchEvent(new Event('input'));
+      });
     }
 
     // ═══════════════════════════════════════════════════
@@ -1147,7 +1183,7 @@
     bind(btnQuit,     () => quitToMenu());
     bind(btnToMenu,   () => quitToMenu());
     bind(btnColl,     () => { buildCollectionGrid(); showPanel(panelColl); });
-    bind(btnSett,     () => { buildHeadGrid();        showPanel(panelSett); });
+    bind(btnSett,     () => { headInput.value = savedHead; showPanel(panelSett); setTimeout(() => headInput.focus(), 50); });
     bind(btnCollBack, () => showPanel(panelStart));
     bind(btnSettBack, () => showPanel(panelStart));
 
@@ -1157,6 +1193,7 @@
 
     loadPersist();
     startFace.textContent = savedHead;
+    initHeadInput();
     initIdleSnake();
     initIdleWorld();
 
