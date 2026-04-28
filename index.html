@@ -131,7 +131,7 @@
       <div class="p-icon" id="go-icon">💥</div>
       <div class="p-title">Game Over</div>
       <div class="p-stat" id="go-stat">3</div>
-      <div class="p-label">emojis collected</div>
+      <div class="p-label">unique emoji types</div>
       <button id="btn-restart" class="btn-action">Play Again</button>
     </div>
   </div>
@@ -282,20 +282,20 @@
 
     const CFG = {
       fontSize    : 30,     // world emoji font size (CSS px)
-      headSize    : 36,     // head emoji font size (CSS px)
-      segSpacing  : 32,     // distance between segment centres (CSS px)
-      trailStep   : 4,      // record a trail point every N CSS px of movement
+      headSize    : 38,     // head emoji font size (CSS px)
+      bodySize    : 22,     // body emoji font size (CSS px), tapers toward tail
+      segSpacing  : 30,     // distance between segment centres (CSS px)
       spawnR      : 620,    // spawn objects within this radius of head
       despawnR    : 840,    // remove objects beyond this radius
       minObjs     : 28,
       maxObjs     : 65,
-      collectDist : 24,     // collection trigger distance (CSS px)
+      collectDist : 28,     // collection trigger distance (CSS px)
       collideDist : 12,     // self-collision trigger distance (CSS px)
       skipSegs    : 7,      // ignore first N body segs for self-collision
-      minSpeed    : 38,     // minimum movement speed px/s (no joystick input)
-      baseSpeed   : 130,    // base top speed px/s (scales further with length/time)
-      turnSpeed   : 4.2,    // direction interpolation multiplier
-      driftFactor : 0.28,   // speed factor applied when joystick is inactive (gentle drift)
+      minSpeed    : 60,     // comfortable minimum movement speed px/s
+      baseSpeed   : 300,    // top speed at full joystick deflection
+      turnSpeed   : 6.0,    // direction lerp multiplier (higher = more responsive)
+      driftFactor : 0.12,   // speed factor when joystick is inactive (gentle drift)
       joystickR   : 80,     // virtual joystick max radius (CSS px)
       joystickKnob: 22,     // inner knob radius (CSS px)
       blurPx      : 2,      // blur for uncollected world objects (CSS px)
@@ -312,10 +312,10 @@
     let trail      = [];
     let world      = [];
     let deathA     = 0;
-    let trailAcc   = 0;
     let spawnTick  = 0;
     let startTime  = 0;
     let restartLock = false;
+    let collectedTypes = new Set(); // unique emoji types gathered this run
 
     // ── Virtual joystick state ───────────────────────
     const joystick = {
@@ -363,8 +363,8 @@
 
       phase     = 'playing';
       deathA    = 0;
-      trailAcc  = 0;
       spawnTick = 0;
+      collectedTypes = new Set();
 
       // Hide overlay
       overlay.classList.remove('show');
@@ -373,10 +373,11 @@
       hudEl.classList.add('visible');
       hintEl.classList.add('visible');
 
-      // Pre-fill trail so body segments have valid positions from frame 1
+      // Pre-fill trail with dense 1-px-spaced history so segments track
+      // smoothly from the very first frame (no jump to mismatched indices)
       trail = [];
-      for (let i = 0; i < 500; i++) {
-        trail.push({ x: -i * CFG.trailStep * 0.5, y: 0 });
+      for (let i = 0; i < 3000; i++) {
+        trail.push({ x: -i, y: 0 });
       }
 
       snake = {
@@ -572,23 +573,43 @@
       snake.x += snake.vx * speed * dt;
       snake.y += snake.vy * speed * dt;
 
-      // ── Record trail ─────────────────────────────────
-      trailAcc += speed * dt;
-      while (trailAcc >= CFG.trailStep) {
-        trail.unshift({ x: snake.x, y: snake.y });
-        trailAcc -= CFG.trailStep;
-      }
-      const maxTrail = (snake.len + 4) * CFG.segSpacing / CFG.trailStep + 80;
+      // ── Record trail point every frame ───────────────
+      trail.unshift({ x: snake.x, y: snake.y });
+      // Keep enough trail to cover the full snake at the current speed
+      const maxTrail = Math.max(3000, (snake.segs.length + 20) * CFG.segSpacing);
       if (trail.length > maxTrail) trail.length = maxTrail;
 
-      // ── Position body segments along trail ───────────
-      const step = CFG.segSpacing / CFG.trailStep;
+      // ── Distance-interpolated body placement ─────────
+      // Build cumulative-distance array along trail just as far as needed.
+      // This eliminates the discrete "stair-step" jump from the old index approach
+      // and keeps all body segments smoothly positioned at all speeds.
+      const neededDist = (snake.segs.length + 1) * CFG.segSpacing;
+      const cumul = [0];
+      let ci = 0;
+      while (ci < trail.length - 1 && cumul[ci] < neededDist) {
+        const ddx = trail[ci + 1].x - trail[ci].x;
+        const ddy = trail[ci + 1].y - trail[ci].y;
+        cumul.push(cumul[ci] + Math.sqrt(ddx * ddx + ddy * ddy));
+        ci++;
+      }
+      const cLast = cumul.length - 1;
+
       for (let i = 0; i < snake.segs.length; i++) {
-        const idx = Math.round((i + 1) * step);
-        if (idx < trail.length) {
-          snake.segs[i].x = trail[idx].x;
-          snake.segs[i].y = trail[idx].y;
+        const d = (i + 1) * CFG.segSpacing;
+        if (d >= cumul[cLast]) {
+          snake.segs[i].x = trail[cLast].x;
+          snake.segs[i].y = trail[cLast].y;
+          continue;
         }
+        // Binary search for the bracketing trail indices
+        let a = 0, b = cLast;
+        while (b - a > 1) {
+          const m = (a + b) >> 1;
+          if (cumul[m] < d) a = m; else b = m;
+        }
+        const f = (d - cumul[a]) / (cumul[b] - cumul[a] + 1e-9);
+        snake.segs[i].x = trail[a].x + (trail[b].x - trail[a].x) * f;
+        snake.segs[i].y = trail[a].y + (trail[b].y - trail[a].y) * f;
       }
 
       // ── Collect objects ───────────────────────────────
@@ -596,6 +617,7 @@
       for (let i = world.length - 1; i >= 0; i--) {
         const o = world[i];
         if (dist2(snake.x, snake.y, o.x, o.y) < cd2) {
+          collectedTypes.add(o.e);
           snake.face = pickFace();
           snake.segs.push({ x: o.x, y: o.y, e: o.e });
           snake.len++;
@@ -629,7 +651,7 @@
       phase = 'dead';
       joystickEnd();
       goIcon.textContent = pickFace();
-      goStat.textContent = snake.len;
+      goStat.textContent = collectedTypes.size;
       // Hide HUD during death animation
       hudEl.classList.remove('visible');
       setTimeout(() => {
@@ -691,24 +713,54 @@
       if (phase !== 'start') {
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
-        ctx.filter       = 'none';  // ensure no residual blur on snake
+        ctx.filter       = 'none'; // ensure no residual blur from world objects
 
-        // Body (tail → neck, rendered without blur)
-        for (let i = snake.segs.length - 1; i >= 0; i--) {
+        const nSegs   = snake.segs.length;
+        const headBob = Math.sin(t * 4.5) * 2.2;
+
+        // ── Glow circles (drawn under emojis) ────────────
+        // Head glow – bright purple halo
+        ctx.globalAlpha = 0.50;
+        ctx.fillStyle   = 'hsl(270, 100%, 72%)';
+        ctx.beginPath();
+        ctx.arc(snake.x, snake.y + headBob, 28, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Body glow – cycling hue, fades toward tail
+        for (let i = nSegs - 1; i >= 0; i--) {
           const s      = snake.segs[i];
           const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
-          const alpha  = 0.72 + 0.28 * (1 - i / Math.max(1, snake.segs.length));
-          const size   = CFG.fontSize * (0.88 + 0.12 * (1 - i / Math.max(1, snake.segs.length)));
-          ctx.globalAlpha = alpha;
-          ctx.font = `${Math.round(size)}px sans-serif`;
-          ctx.fillText(s.e, s.x, s.y + wobble);
+          const fade   = 1 - (i / Math.max(1, nSegs)) * 0.55;
+          const hue    = (40 + i * 20) % 360;
+          ctx.globalAlpha = 0.22 * fade;
+          ctx.fillStyle   = `hsl(${hue}, 100%, 65%)`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y + wobble, 18, 0, Math.PI * 2);
+          ctx.fill();
         }
 
-        // Head
-        const headBob = Math.sin(t * 4.5) * 2.2;
+        // ── Body emojis (tail → neck) ─────────────────────
+        ctx.shadowBlur = 12;
+        for (let i = nSegs - 1; i >= 0; i--) {
+          const s      = snake.segs[i];
+          const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
+          const frac   = 1 - i / Math.max(1, nSegs); // 0 at tail, 1 at neck
+          const hue    = (40 + i * 20) % 360;
+          ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
+          ctx.globalAlpha = 0.75 + 0.25 * frac;
+          ctx.font        = `${Math.round(CFG.bodySize * (0.75 + 0.25 * frac))}px sans-serif`;
+          ctx.fillText(s.e, s.x, s.y + wobble);
+        }
+        ctx.shadowBlur = 0;
+
+        // ── Head emoji ────────────────────────────────────
+        ctx.shadowColor = 'rgba(255, 220, 120, 0.95)';
+        ctx.shadowBlur  = 24;
         ctx.globalAlpha = 1.0;
-        ctx.font = `${CFG.headSize}px sans-serif`;
+        ctx.font        = `${CFG.headSize}px sans-serif`;
         ctx.fillText(snake.face, snake.x, snake.y + headBob);
+        ctx.shadowBlur  = 0;
+        ctx.shadowColor = 'transparent';
       }
 
       ctx.restore(); // end camera transform
