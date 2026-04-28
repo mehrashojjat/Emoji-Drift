@@ -875,8 +875,11 @@
     canvas.addEventListener('mouseleave', () => joystickEnd());
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Block document scroll / zoom but allow panel touches
-    document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+    // Block document scroll / zoom but allow scrolling inside the collection grid
+    document.addEventListener('touchmove', e => {
+      if (e.target.closest('.emoji-scroll')) return;
+      e.preventDefault();
+    }, { passive: false });
     document.addEventListener('touchstart', e => {
       if (e.target.closest('.panel') || e.target === btnPause) return;
       e.preventDefault();
