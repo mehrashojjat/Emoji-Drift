@@ -1,6 +1,6 @@
 # Emoji Drift 🐍✨
 
-> **Built as a live demonstration for a university lecture on Game Development with AI.**  
+> **Built for a live demonstration in the *Generative AI and Prompt Engineering* lecture at **Media University**.**  
 > The entire game — from concept to code — was designed and implemented with the assistance of AI tools, showcasing how modern AI can accelerate game development.
 
 Emoji Drift is a browser-based snake game set in an infinite, procedurally generated emoji universe. Steer your snake across a boundless space, collect emojis to grow your body, and unlock rare treasures — all without installing anything.
@@ -90,7 +90,7 @@ The game is written in plain ES modules — no frameworks, no bundler required.
 
 ## About — Generative AI and Prompt Engineering @ Media University
 
-This project was created as a **live demonstration** for the *Generative AI and Prompt Engineering* lecture at **Media University**.  
+This project was created for a **live demonstration** in the *Generative AI and Prompt Engineering* lecture at **Media University**.  
 It illustrates how conversational AI tools can be used throughout the full development cycle:
 
 - **Concept & design** — brainstorming mechanics, rarity systems, and progression loops
