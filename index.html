@@ -41,20 +41,27 @@
       -webkit-backdrop-filter: blur(12px);
       white-space: nowrap;
       letter-spacing: 0.3px;
+      opacity: 0;
+      transition: opacity 0.5s ease;
     }
+    #hud.visible { opacity: 1; }
 
+    /* Overlay covers the screen for both start and game-over */
     #overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.72);
+      background: rgba(0, 0, 0, 0.62);
       z-index: 20;
       align-items: center;
       justify-content: center;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
     #overlay.show { display: flex; }
 
-    #panel {
+    /* Shared panel style */
+    .panel {
       background: rgba(12, 12, 30, 0.97);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 26px;
@@ -70,14 +77,17 @@
       from { transform: scale(0.6); opacity: 0; }
       to   { transform: scale(1);   opacity: 1; }
     }
-    .go-icon  { font-size: 58px; line-height: 1; margin-bottom: 10px; }
-    .go-title { font-size: 26px; font-weight: 700; margin-bottom: 18px; }
-    .go-stat  { font-size: 60px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
-    .go-label { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 28px; letter-spacing: 0.4px; }
 
-    #btn-restart {
-      font-size: 16px; font-weight: 600;
-      padding: 13px 42px;
+    .p-icon  { font-size: 58px; line-height: 1; margin-bottom: 10px; }
+    .p-title { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+    .p-sub   { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 28px; letter-spacing: 0.3px; }
+    .p-stat  { font-size: 60px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .p-label { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 28px; letter-spacing: 0.4px; }
+
+    .btn-action {
+      font-size: 17px; font-weight: 600;
+      padding: 15px 0;
+      width: 100%;
       border: none; border-radius: 14px;
       background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
       color: #fff; cursor: pointer;
@@ -86,7 +96,7 @@
       transition: transform 0.1s, opacity 0.1s;
       letter-spacing: 0.3px;
     }
-    #btn-restart:active { transform: scale(0.93); opacity: 0.82; }
+    .btn-action:active { transform: scale(0.93); opacity: 0.82; }
 
     #hint {
       position: fixed;
@@ -99,20 +109,30 @@
       z-index: 10;
       transition: opacity 1.8s ease;
       white-space: nowrap;
+      opacity: 0;
     }
+    #hint.visible { opacity: 1; }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
   <div id="hud">🐍&nbsp;&nbsp;<span id="hud-len">3</span></div>
-  <div id="hint">✦ Drag anywhere to steer ✦</div>
-  <div id="overlay">
-    <div id="panel">
-      <div class="go-icon"  id="go-icon">💥</div>
-      <div class="go-title">Game Over</div>
-      <div class="go-stat"  id="go-stat">3</div>
-      <div class="go-label">emojis collected</div>
-      <button id="btn-restart">Play Again</button>
+  <div id="hint">✦ Touch and drag to steer ✦</div>
+
+  <!-- Overlay: start panel shown first, game-over panel hidden -->
+  <div id="overlay" class="show">
+    <div id="panel-start" class="panel">
+      <div class="p-icon">🐍</div>
+      <div class="p-title">Emoji Drift</div>
+      <div class="p-sub">Collect emojis · Grow your snake</div>
+      <button id="btn-start" class="btn-action">Start</button>
+    </div>
+    <div id="panel-over" class="panel" style="display:none">
+      <div class="p-icon" id="go-icon">💥</div>
+      <div class="p-title">Game Over</div>
+      <div class="p-stat" id="go-stat">3</div>
+      <div class="p-label">emojis collected</div>
+      <button id="btn-restart" class="btn-action">Play Again</button>
     </div>
   </div>
 
@@ -128,7 +148,7 @@
     const FACE_POOL = [
       '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘',
       '😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🧐','😎','🥳','🥸','😏',
-      '😒','🙄','😬','😌','😔','😪','😵','🤯','🤠','😕','🙁','☹️','😦','😧','😨',
+      '😒','🙄','😬','😌','😔','😪','😵','🤯','🤠','😕','🙁','☹️','😦','😧','��',
       '😱','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾',
       '🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🫠','🫡','🫢','🫣','🥹',
       '😤','😩','😫','🥱','🤥','🤤','🤢','🤮','🤧','🥵','🥶','🥴','🤕','🤒','😷',
@@ -162,10 +182,10 @@
       ],
       objects: [
         '⚽','🏀','🏈','⚾','🎾','🏐','🎱','🎯','🎲','🎮','🕹️','🧩','🎸','🎺',
-        '🎷','🎹','🥁','🎵','🎶','🎤','🎧','📱','💻','⌚','📷','🔭','🔬','💡',
+        '🎷','🎹','🥁','🎵','��','🎤','🎧','📱','💻','⌚','📷','🔭','🔬','💡',
         '🔦','🕯️','🪔','🧲','💊','💉','🔑','🗝️','💎','💍','👑','🏆','🥇','🎖️',
         '🎗️','🎫','🎪','🎡','🎢','🎠','🎭','🎨','🪆','🧸','🪅','🎀','🎁','🎊',
-        '🎉','🎈','🔮','🧿','🪄','⚜️','🏵️','🎎','🎐','🎑','🧧','🪬','🪩','🪞',
+        '🎉','🎈','🔮','🧿','🪄','⚜️','🏵️','��','🎐','🎑','🧧','🪬','🪩','🪞',
         '🪟','🛋️','🚪','🪣','🧺','🧻','🧼','🪥','🫧','⚗️','🧪','🧫','🧬',
       ],
       symbols: [
@@ -173,24 +193,21 @@
         '💗','💖','💘','💝','💟','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤',
         '💠','🔶','🔷','🔸','🔹','🔺','🔻','♠️','♥️','♦️','♣️','🃏','🀄','🎴',
         '💯','✅','❎','⭕','❌','❓','❗','💥','💢','💫','💦','💨','💤','🕳️',
-        '🌀','🔔','🔕','📌','📍','🔖','🏷️','💬','💭','🗨️','🗯️','📣','📢',
+        '🌀','🔔','🔕','📌','📍','🔖','🏷️','💬','💭','🗨️','🗯️','��','📢',
       ],
     };
 
     const POOL_CATS    = Object.keys(POOLS);
-    // Per-category weights (must sum to 1)
     const POOL_WEIGHTS = [0.28, 0.25, 0.22, 0.15, 0.10];
-    // Pre-compute cumulative distribution for weighted sampling
     const POOL_CDF = POOL_WEIGHTS.reduce((acc, w, i) => {
       acc.push((acc[i - 1] || 0) + w); return acc;
     }, []);
 
-    /** Unicode ranges for supplemental variety (~12 % of world picks) */
     const UNI_RANGES = [
-      [0x1F300, 0x1F5FF],  // Misc symbols & pictographs
-      [0x1F680, 0x1F6FF],  // Transport & map symbols
-      [0x1F900, 0x1F9FF],  // Supplemental symbols & pictographs
-      [0x1FA70, 0x1FAFF],  // Symbols & pictographs extended-B
+      [0x1F300, 0x1F5FF],
+      [0x1F680, 0x1F6FF],
+      [0x1F900, 0x1F9FF],
+      [0x1FA70, 0x1FAFF],
     ];
 
     function randUnicode() {
@@ -198,7 +215,6 @@
       return String.fromCodePoint(rng[0] + Math.floor(Math.random() * (rng[1] - rng[0])));
     }
 
-    // Avoid repeating the same face too quickly
     const _recentFaces = [];
     function pickFace() {
       let e, tries = 0;
@@ -220,28 +236,42 @@
           return pool[Math.floor(Math.random() * pool.length)];
         }
       }
-      // fallback
       const pool = POOLS.food;
       return pool[Math.floor(Math.random() * pool.length)];
     }
 
     // ═══════════════════════════════════════════════════
-    //  CANVAS SETUP
+    //  CANVAS SETUP — devicePixelRatio aware
     // ═══════════════════════════════════════════════════
 
-    const canvas   = document.getElementById('canvas');
-    const ctx      = canvas.getContext('2d');
-    const hudLen   = document.getElementById('hud-len');
-    const goIcon   = document.getElementById('go-icon');
-    const goStat   = document.getElementById('go-stat');
-    const overlay  = document.getElementById('overlay');
-    const btnPlay  = document.getElementById('btn-restart');
-    const hintEl   = document.getElementById('hint');
+    const canvas  = document.getElementById('canvas');
+    const ctx     = canvas.getContext('2d');
+    const hudEl   = document.getElementById('hud');
+    const hudLen  = document.getElementById('hud-len');
+    const goIcon  = document.getElementById('go-icon');
+    const goStat  = document.getElementById('go-stat');
+    const overlay = document.getElementById('overlay');
+    const panelStart = document.getElementById('panel-start');
+    const panelOver  = document.getElementById('panel-over');
+    const btnStart   = document.getElementById('btn-start');
+    const btnPlay    = document.getElementById('btn-restart');
+    const hintEl     = document.getElementById('hint');
 
+    // Logical (CSS) dimensions — all game coordinates use these
     let W = 0, H = 0;
+
     function resize() {
-      W = canvas.width  = window.innerWidth;
-      H = canvas.height = window.innerHeight;
+      W = window.innerWidth;
+      H = window.innerHeight;
+      // Recalculate DPR on each resize to handle moving between displays
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      // Physical pixels = logical * DPR for sharp rendering on Retina
+      canvas.width  = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      // Reset transform then apply DPR scale (prevents cumulative scaling on repeated resize)
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resize();
     window.addEventListener('resize', resize);
@@ -251,20 +281,24 @@
     // ═══════════════════════════════════════════════════
 
     const CFG = {
-      fontSize    : 30,     // world emoji render size (px)
-      headSize    : 36,     // head emoji render size (px)
-      segSpacing  : 32,     // distance between segment centres (px)
-      trailStep   : 4,      // record a trail point every N px of movement
+      fontSize    : 30,     // world emoji font size (CSS px)
+      headSize    : 36,     // head emoji font size (CSS px)
+      segSpacing  : 32,     // distance between segment centres (CSS px)
+      trailStep   : 4,      // record a trail point every N CSS px of movement
       spawnR      : 620,    // spawn objects within this radius of head
       despawnR    : 840,    // remove objects beyond this radius
-      minObjs     : 28,     // minimum live world objects
-      maxObjs     : 65,     // maximum live world objects
-      collectDist : 24,     // collection trigger distance (px)
-      collideDist : 12,     // self-collision trigger distance (px)
+      minObjs     : 28,
+      maxObjs     : 65,
+      collectDist : 24,     // collection trigger distance (CSS px)
+      collideDist : 12,     // self-collision trigger distance (CSS px)
       skipSegs    : 7,      // ignore first N body segs for self-collision
-      baseSpeed   : 110,    // starting movement speed (px/s)
-      turnSpeed   : 3.8,    // direction interpolation multiplier
-      blurPx      : 2,      // blur for uncollected world objects (px)
+      minSpeed    : 38,     // minimum movement speed px/s (no joystick input)
+      baseSpeed   : 130,    // base top speed px/s (scales further with length/time)
+      turnSpeed   : 4.2,    // direction interpolation multiplier
+      driftFactor : 0.28,   // speed factor applied when joystick is inactive (gentle drift)
+      joystickR   : 80,     // virtual joystick max radius (CSS px)
+      joystickKnob: 22,     // inner knob radius (CSS px)
+      blurPx      : 2,      // blur for uncollected world objects (CSS px)
       blurAlpha   : 0.62,   // max opacity for uncollected objects
     };
 
@@ -272,22 +306,72 @@
     //  GAME STATE
     // ═══════════════════════════════════════════════════
 
-    let snake, trail, world, alive, dead;
-    let deathA      = 0;   // red death overlay alpha
-    let trailAcc    = 0;   // accumulated px since last trail point
-    let spawnTick   = 0;   // timer for periodic spawn/despawn
-    let startTime   = 0;
+    // phase: 'start' | 'playing' | 'dead'
+    let phase      = 'start';
+    let snake      = null;
+    let trail      = [];
+    let world      = [];
+    let deathA     = 0;
+    let trailAcc   = 0;
+    let spawnTick  = 0;
+    let startTime  = 0;
     let restartLock = false;
 
-    function newGame() {
+    // ── Virtual joystick state ───────────────────────
+    const joystick = {
+      active : false,
+      cx: 0, cy: 0,       // anchor point (CSS px)
+      curX: 0, curY: 0,   // current knob position (CSS px)
+      dx: 0, dy: 0,       // clamped offset from anchor
+      factor: 0,          // speed factor 0..1
+    };
+
+    // ── Idle / start-screen snake placeholder ────────
+    function initIdleSnake() {
+      snake = {
+        x: 0, y: 0,
+        vx: 1, vy: 0,
+        tx: 1, ty: 0,
+        face: pickFace(),
+        segs: [],
+        len: 3,
+      };
+    }
+
+    // ── Seed world objects for the idle background ───
+    function initIdleWorld() {
+      world = [];
+      for (let i = 0; i < 42; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const r   = 55 + Math.random() * 500;
+        world.push({
+          x     : Math.cos(ang) * r,
+          y     : Math.sin(ang) * r,
+          e     : pickWorld(),
+          alpha : Math.random() * 0.4 + 0.08,
+          scale : Math.random() * 0.6 + 0.3,
+          bob   : Math.random() * Math.PI * 2,
+          bobSpd: 0.45 + Math.random() * 0.55,
+        });
+      }
+    }
+
+    // ── Begin / restart actual gameplay ─────────────
+    function beginGame() {
       restartLock = true;
       setTimeout(() => { restartLock = false; }, 600);
 
+      phase     = 'playing';
       deathA    = 0;
       trailAcc  = 0;
       spawnTick = 0;
-      hintEl.style.opacity = '1';
+
+      // Hide overlay
       overlay.classList.remove('show');
+
+      // Show HUD + hint
+      hudEl.classList.add('visible');
+      hintEl.classList.add('visible');
 
       // Pre-fill trail so body segments have valid positions from frame 1
       trail = [];
@@ -296,29 +380,20 @@
       }
 
       snake = {
-        x : 0, y : 0,          // head world position
-        vx: 1, vy: 0,          // current direction (unit vector)
-        tx: 1, ty: 0,          // target direction (from input)
+        x: 0, y: 0,
+        vx: 1, vy: 0,
+        tx: 1, ty: 0,
         face: pickFace(),
-        segs: [],              // body segments [{x, y, e}]
-        len : 3,
-        inputGiven: false,
+        segs: [],
+        len: 3,
       };
 
-      // Two initial body segments
       for (let i = 0; i < 2; i++) {
-        snake.segs.push({
-          x: -(i + 1) * CFG.segSpacing,
-          y: 0,
-          e: pickWorld(),
-        });
+        snake.segs.push({ x: -(i + 1) * CFG.segSpacing, y: 0, e: pickWorld() });
       }
 
-      world  = [];
-      alive  = true;
-      dead   = false;
+      world = [];
       startTime = performance.now();
-
       hudLen.textContent = snake.len;
       spawnWorld(true);
     }
@@ -328,7 +403,6 @@
     // ═══════════════════════════════════════════════════
 
     function spawnWorld(initial) {
-      // Dynamic target count scales mildly with snake length
       const target = Math.min(
         CFG.maxObjs,
         CFG.minObjs + Math.floor(snake.len * 0.4),
@@ -336,15 +410,12 @@
       let tries = 0;
       while (world.length < target && tries++ < 350) {
         const ang = Math.random() * Math.PI * 2;
-        // Bias toward mid-radius rather than clustering at edge
         const r   = (0.25 + Math.random() * 0.75) * CFG.spawnR;
         const wx  = snake.x + Math.cos(ang) * r;
         const wy  = snake.y + Math.sin(ang) * r;
 
-        // Keep clear of head
         if (dist2(wx, wy, snake.x, snake.y) < 70 * 70) continue;
 
-        // Keep clear of existing objects
         let ok = true;
         for (const o of world) {
           if (dist2(wx, wy, o.x, o.y) < 30 * 30) { ok = false; break; }
@@ -352,13 +423,13 @@
         if (!ok) continue;
 
         world.push({
-          x       : wx,
-          y       : wy,
-          e       : pickWorld(),
-          alpha   : initial ? Math.random() * 0.5 + 0.1 : 0,
-          scale   : initial ? Math.random() * 0.7 + 0.3 : 0.01,
-          bob     : Math.random() * Math.PI * 2,
-          bobSpd  : 0.45 + Math.random() * 0.55,
+          x     : wx,
+          y     : wy,
+          e     : pickWorld(),
+          alpha : initial ? Math.random() * 0.5 + 0.1 : 0,
+          scale : initial ? Math.random() * 0.7 + 0.3 : 0.01,
+          bob   : Math.random() * Math.PI * 2,
+          bobSpd: 0.45 + Math.random() * 0.55,
         });
       }
     }
@@ -382,61 +453,92 @@
     }
 
     // ═══════════════════════════════════════════════════
-    //  INPUT
+    //  INPUT — Virtual joystick
     // ═══════════════════════════════════════════════════
 
-    let touchAnchor = null;   // {sx, sy} – where the drag started
-    let mouseAnchor = null;
-    let mouseDown   = false;
+    function joystickStart(cx, cy) {
+      joystick.active = true;
+      joystick.cx   = cx;
+      joystick.cy   = cy;
+      joystick.curX = cx;
+      joystick.curY = cy;
+      joystick.dx   = 0;
+      joystick.dy   = 0;
+      joystick.factor = 0;
+    }
 
-    function applyDir(fromX, fromY, toX, toY) {
-      const dx = toX - fromX;
-      const dy = toY - fromY;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      if (len > 8) {
-        snake.tx = dx / len;
-        snake.ty = dy / len;
-        if (!snake.inputGiven) {
-          snake.inputGiven = true;
-          hintEl.style.opacity = '0';
-        }
+    function joystickMove(x, y) {
+      if (!joystick.active) return;
+      let dx   = x - joystick.cx;
+      let dy   = y - joystick.cy;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+
+      // Speed factor: linearly scales from 0 to 1 over joystick radius
+      joystick.factor = Math.min(d / CFG.joystickR, 1);
+
+      // Clamp knob position to joystick radius
+      if (d > CFG.joystickR) {
+        dx = (dx / d) * CFG.joystickR;
+        dy = (dy / d) * CFG.joystickR;
+      }
+      joystick.dx   = dx;
+      joystick.dy   = dy;
+      joystick.curX = joystick.cx + dx;
+      joystick.curY = joystick.cy + dy;
+
+      // Update target direction from the raw (unclamped) finger vector
+      if (d > 8 && phase === 'playing') {
+        snake.tx = (x - joystick.cx) / d;
+        snake.ty = (y - joystick.cy) / d;
+        // Dismiss hint after first intentional input
+        hintEl.classList.remove('visible');
       }
     }
 
-    // Touch ──────────────────────────────────────────
+    function joystickEnd() {
+      joystick.active = false;
+      joystick.factor = 0;
+    }
+
+    // Touch events ────────────────────────────────────
     canvas.addEventListener('touchstart', e => {
       e.preventDefault();
-      const t = e.touches[0];
-      touchAnchor = { sx: t.clientX, sy: t.clientY };
+      if (phase !== 'playing') return;
+      const t = e.changedTouches[0];
+      joystickStart(t.clientX, t.clientY);
     }, { passive: false });
 
     canvas.addEventListener('touchmove', e => {
       e.preventDefault();
-      if (!touchAnchor) return;
-      const t = e.touches[0];
-      applyDir(touchAnchor.sx, touchAnchor.sy, t.clientX, t.clientY);
+      if (!joystick.active) return;
+      const t = e.changedTouches[0];
+      joystickMove(t.clientX, t.clientY);
     }, { passive: false });
 
-    canvas.addEventListener('touchend',   e => { e.preventDefault(); touchAnchor = null; }, { passive: false });
-    canvas.addEventListener('touchcancel',e => { e.preventDefault(); touchAnchor = null; }, { passive: false });
+    canvas.addEventListener('touchend',    e => { e.preventDefault(); joystickEnd(); }, { passive: false });
+    canvas.addEventListener('touchcancel', e => { e.preventDefault(); joystickEnd(); }, { passive: false });
 
-    // Mouse (desktop) ────────────────────────────────
+    // Mouse (desktop) ─────────────────────────────────
     canvas.addEventListener('mousedown', e => {
-      mouseDown   = true;
-      mouseAnchor = { sx: e.clientX, sy: e.clientY };
+      if (phase !== 'playing') return;
+      joystickStart(e.clientX, e.clientY);
     });
     canvas.addEventListener('mousemove', e => {
-      if (!mouseDown || !mouseAnchor) return;
-      applyDir(mouseAnchor.sx, mouseAnchor.sy, e.clientX, e.clientY);
+      if (!joystick.active) return;
+      joystickMove(e.clientX, e.clientY);
     });
-    canvas.addEventListener('mouseup',    () => { mouseDown = false; mouseAnchor = null; });
-    canvas.addEventListener('mouseleave', () => { mouseDown = false; mouseAnchor = null; });
+    canvas.addEventListener('mouseup',    () => joystickEnd());
+    canvas.addEventListener('mouseleave', () => joystickEnd());
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Prevent document-level scroll/zoom
-    document.addEventListener('touchmove',  e => e.preventDefault(), { passive: false });
+    // Block document-level scroll / zoom
+    document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
     document.addEventListener('touchstart', e => {
-      if (e.target !== canvas && e.target !== btnPlay) e.preventDefault();
+      if (e.target !== canvas &&
+          e.target !== btnStart &&
+          e.target !== btnPlay) {
+        e.preventDefault();
+      }
     }, { passive: false });
 
     // ═══════════════════════════════════════════════════
@@ -444,33 +546,42 @@
     // ═══════════════════════════════════════════════════
 
     function update(dt) {
-      if (!alive) return;
+      // World objects animate in all phases (idle background + gameplay)
+      for (const o of world) {
+        if (o.alpha < CFG.blurAlpha) o.alpha = Math.min(CFG.blurAlpha, o.alpha + dt * 1.6);
+        if (o.scale < 1)             o.scale = Math.min(1,             o.scale + dt * 2.8);
+      }
 
-      // ── Direction interpolation ──────────────────────
+      // Snake logic only while playing
+      if (phase !== 'playing') return;
+
+      // ── Direction interpolation (lerp toward target) ─
       snake.vx += (snake.tx - snake.vx) * CFG.turnSpeed * dt;
       snake.vy += (snake.ty - snake.vy) * CFG.turnSpeed * dt;
       const vLen = Math.sqrt(snake.vx * snake.vx + snake.vy * snake.vy);
       if (vLen > 0.0001) { snake.vx /= vLen; snake.vy /= vLen; }
 
-      // ── Speed (scales with length + elapsed time) ───
-      const elapsed = (performance.now() - startTime) / 1000;
-      const speed   = CFG.baseSpeed + (snake.len - 3) * 1.8 + elapsed * 0.6;
+      // ── Speed: joystick distance → scale between min and dynamic max ──
+      const elapsed     = (performance.now() - startTime) / 1000;
+      const dynamicMax  = CFG.baseSpeed + (snake.len - 3) * 1.8 + elapsed * 0.5;
+      // When joystick inactive, drift at driftFactor of dynamic range above minSpeed
+      const factor      = joystick.active ? joystick.factor : CFG.driftFactor;
+      const speed       = CFG.minSpeed + factor * (dynamicMax - CFG.minSpeed);
 
-      // ── Move head ───────────────────────────────────
+      // ── Move head ────────────────────────────────────
       snake.x += snake.vx * speed * dt;
       snake.y += snake.vy * speed * dt;
 
-      // ── Record trail ────────────────────────────────
+      // ── Record trail ─────────────────────────────────
       trailAcc += speed * dt;
       while (trailAcc >= CFG.trailStep) {
         trail.unshift({ x: snake.x, y: snake.y });
         trailAcc -= CFG.trailStep;
       }
-      // Trim to needed length
       const maxTrail = (snake.len + 4) * CFG.segSpacing / CFG.trailStep + 80;
       if (trail.length > maxTrail) trail.length = maxTrail;
 
-      // ── Position body segments along trail ──────────
+      // ── Position body segments along trail ───────────
       const step = CFG.segSpacing / CFG.trailStep;
       for (let i = 0; i < snake.segs.length; i++) {
         const idx = Math.round((i + 1) * step);
@@ -480,13 +591,7 @@
         }
       }
 
-      // ── Animate world objects (fade / pop in) ───────
-      for (const o of world) {
-        if (o.alpha < CFG.blurAlpha) o.alpha = Math.min(CFG.blurAlpha, o.alpha + dt * 1.6);
-        if (o.scale < 1)             o.scale = Math.min(1,             o.scale + dt * 2.8);
-      }
-
-      // ── Collect objects ──────────────────────────────
+      // ── Collect objects ───────────────────────────────
       const cd2 = CFG.collectDist * CFG.collectDist;
       for (let i = world.length - 1; i >= 0; i--) {
         const o = world[i];
@@ -496,23 +601,22 @@
           snake.len++;
           world.splice(i, 1);
           hudLen.textContent = snake.len;
-          break; // one collection per frame keeps things fair
+          break;
         }
       }
 
-      // ── Self-collision ───────────────────────────────
+      // ── Self-collision ────────────────────────────────
       if (snake.segs.length > CFG.skipSegs) {
         const col2 = CFG.collideDist * CFG.collideDist;
         for (let i = CFG.skipSegs; i < snake.segs.length; i++) {
-          const s = snake.segs[i];
-          if (dist2(snake.x, snake.y, s.x, s.y) < col2) {
+          if (dist2(snake.x, snake.y, snake.segs[i].x, snake.segs[i].y) < col2) {
             triggerDeath();
             return;
           }
         }
       }
 
-      // ── Periodic spawn / despawn ─────────────────────
+      // ── Periodic spawn / despawn ──────────────────────
       spawnTick += dt;
       if (spawnTick >= 0.5) {
         spawnTick = 0;
@@ -522,54 +626,43 @@
     }
 
     function triggerDeath() {
-      alive = false;
-      dead  = true;
+      phase = 'dead';
+      joystickEnd();
       goIcon.textContent = pickFace();
       goStat.textContent = snake.len;
-      setTimeout(() => overlay.classList.add('show'), 850);
+      // Hide HUD during death animation
+      hudEl.classList.remove('visible');
+      setTimeout(() => {
+        panelStart.style.display = 'none';
+        panelOver.style.display  = '';
+        overlay.classList.add('show');
+      }, 850);
     }
 
     // ═══════════════════════════════════════════════════
     //  RENDER
     // ═══════════════════════════════════════════════════
 
-    /**
-     * Draw a single emoji.
-     * @param {string}  e      – emoji string
-     * @param {number}  x      – world x
-     * @param {number}  y      – world y
-     * @param {number}  size   – font size in px
-     * @param {number}  alpha  – global alpha
-     * @param {boolean} blur   – apply blur filter
-     */
-    function drawEmoji(e, x, y, size, alpha, blur) {
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      if (blur) ctx.filter = `blur(${CFG.blurPx}px)`;
-      ctx.font = `${size}px sans-serif`;
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(e, x, y);
-      ctx.restore();
-    }
-
     function render(now) {
-      const t  = now * 0.001;   // seconds
-      const cx = W * 0.5 - snake.x;   // camera translate X
-      const cy = H * 0.5 - snake.y;   // camera translate Y
+      const t = now * 0.001;  // seconds
 
-      // Viewport half-diagonal (used for culling)
-      const cullR   = (Math.sqrt(W * W + H * H) * 0.5 + 60);
-      const cullR2  = cullR * cullR;
+      // Camera follows snake in all phases
+      // (during 'start', snake is at origin → camera centred)
+      const cx = W * 0.5 - snake.x;
+      const cy = H * 0.5 - snake.y;
 
-      // ── Background ───────────────────────────────────
+      // Viewport culling radius
+      const cullR  = Math.sqrt(W * W + H * H) * 0.5 + 60;
+      const cullR2 = cullR * cullR;
+
+      // ── Background ────────────────────────────────────
       ctx.fillStyle = '#07071a';
       ctx.fillRect(0, 0, W, H);
 
       ctx.save();
       ctx.translate(cx, cy);
 
-      // ── World objects — batched blur draw ────────────
+      // ── World objects — blurred, semi-transparent ─────
       ctx.save();
       ctx.filter       = `blur(${CFG.blurPx}px)`;
       ctx.textAlign    = 'center';
@@ -577,14 +670,12 @@
       ctx.font         = `${CFG.fontSize}px sans-serif`;
 
       for (const o of world) {
-        // Cull objects outside the visible viewport
         if (dist2(o.x, o.y, snake.x, snake.y) > cullR2) continue;
 
         const bob = Math.sin(t * o.bobSpd + o.bob) * 3.5;
         ctx.globalAlpha = o.alpha * o.scale;
 
         if (o.scale < 0.999) {
-          // Scale pop-in: translate to object centre then scale
           ctx.save();
           ctx.translate(o.x, o.y + bob);
           ctx.scale(o.scale, o.scale);
@@ -596,36 +687,73 @@
       }
       ctx.restore(); // resets filter
 
-      // ── Snake body (tail → neck, so head renders last / on top) ─
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
+      // ── Snake — only during play / death ─────────────
+      if (phase !== 'start') {
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.filter       = 'none';  // ensure no residual blur on snake
 
-      for (let i = snake.segs.length - 1; i >= 0; i--) {
-        const s      = snake.segs[i];
-        const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
-        // Tail segments slightly more transparent for depth effect
-        const alpha  = 0.72 + 0.28 * (1 - i / Math.max(1, snake.segs.length));
-        const size   = CFG.fontSize * (0.88 + 0.12 * (1 - i / Math.max(1, snake.segs.length)));
-        ctx.globalAlpha = alpha;
-        ctx.font = `${Math.round(size)}px sans-serif`;
-        ctx.fillText(s.e, s.x, s.y + wobble);
+        // Body (tail → neck, rendered without blur)
+        for (let i = snake.segs.length - 1; i >= 0; i--) {
+          const s      = snake.segs[i];
+          const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
+          const alpha  = 0.72 + 0.28 * (1 - i / Math.max(1, snake.segs.length));
+          const size   = CFG.fontSize * (0.88 + 0.12 * (1 - i / Math.max(1, snake.segs.length)));
+          ctx.globalAlpha = alpha;
+          ctx.font = `${Math.round(size)}px sans-serif`;
+          ctx.fillText(s.e, s.x, s.y + wobble);
+        }
+
+        // Head
+        const headBob = Math.sin(t * 4.5) * 2.2;
+        ctx.globalAlpha = 1.0;
+        ctx.font = `${CFG.headSize}px sans-serif`;
+        ctx.fillText(snake.face, snake.x, snake.y + headBob);
       }
-
-      // ── Head ─────────────────────────────────────────
-      const headBob = Math.sin(t * 4.5) * 2.2;
-      ctx.globalAlpha = 1.0;
-      ctx.font = `${CFG.headSize}px sans-serif`;
-      ctx.fillText(snake.face, snake.x, snake.y + headBob);
 
       ctx.restore(); // end camera transform
 
-      // ── Death red vignette ────────────────────────────
-      if (dead) {
-        deathA = Math.min(0.38, deathA + 0.014);
+      // ── Death vignette (screen space) ─────────────────
+      if (phase === 'dead') {
+        deathA = Math.min(0.40, deathA + 0.015);
         ctx.globalAlpha = deathA;
-        ctx.fillStyle = 'rgba(220, 20, 20, 1)';
+        ctx.fillStyle = '#dc1414';
         ctx.fillRect(0, 0, W, H);
         ctx.globalAlpha = 1;
+      }
+
+      // ── Virtual joystick (screen space, no camera) ────
+      if (joystick.active && phase === 'playing') {
+        ctx.save();
+        ctx.globalAlpha = 1;
+
+        // Outer ring
+        ctx.beginPath();
+        ctx.arc(joystick.cx, joystick.cy, CFG.joystickR, 0, Math.PI * 2);
+        ctx.fillStyle   = 'rgba(255, 255, 255, 0.04)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+
+        // Line from centre to knob
+        ctx.beginPath();
+        ctx.moveTo(joystick.cx, joystick.cy);
+        ctx.lineTo(joystick.curX, joystick.curY);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+
+        // Inner knob
+        ctx.beginPath();
+        ctx.arc(joystick.curX, joystick.curY, CFG.joystickKnob, 0, Math.PI * 2);
+        ctx.fillStyle   = 'rgba(255, 255, 255, 0.28)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+
+        ctx.restore();
       }
     }
 
@@ -637,7 +765,7 @@
 
     function loop(now) {
       if (prevTime === 0) { prevTime = now; requestAnimationFrame(loop); return; }
-      const dt = Math.min((now - prevTime) / 1000, 0.05); // cap at 50 ms
+      const dt = Math.min((now - prevTime) / 1000, 0.05);
       prevTime = now;
       update(dt);
       render(now);
@@ -645,22 +773,38 @@
     }
 
     // ═══════════════════════════════════════════════════
-    //  RESTART BUTTON
+    //  BUTTON HANDLERS
     // ═══════════════════════════════════════════════════
+
+    function onStart(e) {
+      e.preventDefault();
+      if (restartLock) return;
+      beginGame();
+    }
 
     function onRestart(e) {
       e.preventDefault();
       if (restartLock) return;
-      newGame();
+      beginGame();
     }
+
+    btnStart.addEventListener('click',    onStart);
+    btnStart.addEventListener('touchend', onStart, { passive: false });
     btnPlay.addEventListener('click',    onRestart);
     btnPlay.addEventListener('touchend', onRestart, { passive: false });
 
     // ═══════════════════════════════════════════════════
-    //  BOOT
+    //  BOOT — idle background, then wait for Start tap
     // ═══════════════════════════════════════════════════
 
-    newGame();
+    initIdleSnake();
+    initIdleWorld();
+
+    // Ensure correct panel visibility
+    panelStart.style.display = '';
+    panelOver.style.display  = 'none';
+    overlay.classList.add('show');
+
     requestAnimationFrame(loop);
 
   }());
