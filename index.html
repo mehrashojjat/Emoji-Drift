@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Emoji Drift</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #07071a;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    canvas {
+      display: block;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #hud {
+      position: fixed;
+      top: env(safe-area-inset-top, 16px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.92);
+      font: 600 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      pointer-events: none;
+      z-index: 10;
+      padding: 7px 20px;
+      background: rgba(0, 0, 0, 0.42);
+      border-radius: 18px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+    }
+
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.72);
+      z-index: 20;
+      align-items: center;
+      justify-content: center;
+    }
+    #overlay.show { display: flex; }
+
+    #panel {
+      background: rgba(12, 12, 30, 0.97);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 26px;
+      padding: 40px 32px;
+      text-align: center;
+      max-width: 300px;
+      width: 88%;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.6); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .go-icon  { font-size: 58px; line-height: 1; margin-bottom: 10px; }
+    .go-title { font-size: 26px; font-weight: 700; margin-bottom: 18px; }
+    .go-stat  { font-size: 60px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .go-label { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 28px; letter-spacing: 0.4px; }
+
+    #btn-restart {
+      font-size: 16px; font-weight: 600;
+      padding: 13px 42px;
+      border: none; border-radius: 14px;
+      background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+      color: #fff; cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s, opacity 0.1s;
+      letter-spacing: 0.3px;
+    }
+    #btn-restart:active { transform: scale(0.93); opacity: 0.82; }
+
+    #hint {
+      position: fixed;
+      bottom: env(safe-area-inset-bottom, 22px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.35);
+      font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 1.8s ease;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="hud">🐍&nbsp;&nbsp;<span id="hud-len">3</span></div>
+  <div id="hint">✦ Drag anywhere to steer ✦</div>
+  <div id="overlay">
+    <div id="panel">
+      <div class="go-icon"  id="go-icon">💥</div>
+      <div class="go-title">Game Over</div>
+      <div class="go-stat"  id="go-stat">3</div>
+      <div class="go-label">emojis collected</div>
+      <button id="btn-restart">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ═══════════════════════════════════════════════════
+    //  EMOJI DATABASE
+    // ═══════════════════════════════════════════════════
+
+    /** Expressive / face-like emojis used for the snake head */
+    const FACE_POOL = [
+      '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘',
+      '😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🧐','😎','🥳','🥸','😏',
+      '😒','🙄','😬','😌','😔','😪','😵','🤯','🤠','😕','🙁','☹️','😦','😧','😨',
+      '😱','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾',
+      '🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🫠','🫡','🫢','🫣','🥹',
+      '😤','😩','😫','🥱','🤥','🤤','🤢','🤮','🤧','🥵','🥶','🥴','🤕','🤒','😷',
+    ];
+
+    /** World-object emoji pools organised by category */
+    const POOLS = {
+      food: [
+        '🍎','🍊','🍋','🍇','🍓','🫐','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🥑',
+        '🥦','🥬','🥒','🌶️','🌽','🥕','🧄','🧅','🥐','🥖','🫓','🧀','🥚','🥞',
+        '🧇','🥓','🥩','🍗','🍖','🌮','🌯','🍝','🍜','🍲','🍛','🍣','🍱','🥟',
+        '🍤','🍙','🍚','🥮','🧁','🎂','🍰','🍮','🍭','🍬','🍫','🍿','🍩','🍪',
+        '🍯','🍺','🍸','🍹','🥤','🧋','☕','🍵','🧃','🥛','🥂','🍾','🍷','🥗',
+        '🫙','🥫','🍱','🥙','🧆','🥘','🫕','🥣','🥧','🍼','🫗','🍶','🫖',
+      ],
+      animals: [
+        '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸',
+        '🐵','🙈','🙉','🙊','🐔','🐧','🐦','🦆','🦅','🦉','🦇','🐺','🐴','🦄',
+        '🐝','🦋','🐌','🐞','🦟','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑',
+        '🦐','🦀','🐠','🐟','🐬','🐳','🦈','🐊','🐅','🐆','🦓','🐘','🦛','🦏',
+        '🐪','🦒','🦘','🐎','🐑','🦙','🐐','🦌','🐕','🐈','🐓','🦃','🦚','🦜',
+        '🦢','🦩','🕊️','🐇','🦝','🦨','🦦','🦥','🐁','🐿️','🦔','🦬','🦣','🦤',
+        '🪲','🪳','🪰','🪱','🦭','🦫','🐾',
+      ],
+      nature: [
+        '🌸','🌺','🌻','🌹','🌷','💐','🌼','🪷','🌿','☘️','🍀','🍁','🍂','🍃',
+        '🌱','🌲','🌳','🌴','🪨','🪵','🌵','🎋','🌾','🍄','🌊','🌈','⭐','🌟',
+        '✨','💫','⚡','🔥','💧','🌙','☀️','❄️','☃️','⛄','🌪️','🌝','🌚','🌕',
+        '🌠','☄️','🪐','🏔️','⛰️','🌋','🏝️','🌅','🌄','🎇','🎆','🌃','🌌','🌠',
+        '🌬️','🌫️','⛅','🌤️','🌦️','🌧️','⛈️','🌩️','🌨️','🌑','🌒','🌓','🌔',
+      ],
+      objects: [
+        '⚽','🏀','🏈','⚾','🎾','🏐','🎱','🎯','🎲','🎮','🕹️','🧩','🎸','🎺',
+        '🎷','🎹','🥁','🎵','🎶','🎤','🎧','📱','💻','⌚','📷','🔭','🔬','💡',
+        '🔦','🕯️','🪔','🧲','💊','💉','🔑','🗝️','💎','💍','👑','🏆','🥇','🎖️',
+        '🎗️','🎫','🎪','🎡','🎢','🎠','🎭','🎨','🪆','🧸','🪅','🎀','🎁','🎊',
+        '🎉','🎈','🔮','🧿','🪄','⚜️','🏵️','🎎','🎐','🎑','🧧','🪬','🪩','🪞',
+        '🪟','🛋️','🚪','🪣','🧺','🧻','🧼','🪥','🫧','⚗️','🧪','🧫','🧬',
+      ],
+      symbols: [
+        '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓',
+        '💗','💖','💘','💝','💟','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤',
+        '💠','🔶','🔷','🔸','🔹','🔺','🔻','♠️','♥️','♦️','♣️','🃏','🀄','🎴',
+        '💯','✅','❎','⭕','❌','❓','❗','💥','💢','💫','💦','💨','💤','🕳️',
+        '🌀','🔔','🔕','📌','📍','🔖','🏷️','💬','💭','🗨️','🗯️','📣','📢',
+      ],
+    };
+
+    const POOL_CATS    = Object.keys(POOLS);
+    // Per-category weights (must sum to 1)
+    const POOL_WEIGHTS = [0.28, 0.25, 0.22, 0.15, 0.10];
+    // Pre-compute cumulative distribution for weighted sampling
+    const POOL_CDF = POOL_WEIGHTS.reduce((acc, w, i) => {
+      acc.push((acc[i - 1] || 0) + w); return acc;
+    }, []);
+
+    /** Unicode ranges for supplemental variety (~12 % of world picks) */
+    const UNI_RANGES = [
+      [0x1F300, 0x1F5FF],  // Misc symbols & pictographs
+      [0x1F680, 0x1F6FF],  // Transport & map symbols
+      [0x1F900, 0x1F9FF],  // Supplemental symbols & pictographs
+      [0x1FA70, 0x1FAFF],  // Symbols & pictographs extended-B
+    ];
+
+    function randUnicode() {
+      const rng = UNI_RANGES[Math.floor(Math.random() * UNI_RANGES.length)];
+      return String.fromCodePoint(rng[0] + Math.floor(Math.random() * (rng[1] - rng[0])));
+    }
+
+    // Avoid repeating the same face too quickly
+    const _recentFaces = [];
+    function pickFace() {
+      let e, tries = 0;
+      do {
+        e = FACE_POOL[Math.floor(Math.random() * FACE_POOL.length)];
+        tries++;
+      } while (_recentFaces.includes(e) && tries < 15);
+      _recentFaces.push(e);
+      if (_recentFaces.length > 8) _recentFaces.shift();
+      return e;
+    }
+
+    function pickWorld() {
+      if (Math.random() < 0.12) return randUnicode();
+      const r = Math.random();
+      for (let i = 0; i < POOL_CDF.length; i++) {
+        if (r <= POOL_CDF[i]) {
+          const pool = POOLS[POOL_CATS[i]];
+          return pool[Math.floor(Math.random() * pool.length)];
+        }
+      }
+      // fallback
+      const pool = POOLS.food;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  CANVAS SETUP
+    // ═══════════════════════════════════════════════════
+
+    const canvas   = document.getElementById('canvas');
+    const ctx      = canvas.getContext('2d');
+    const hudLen   = document.getElementById('hud-len');
+    const goIcon   = document.getElementById('go-icon');
+    const goStat   = document.getElementById('go-stat');
+    const overlay  = document.getElementById('overlay');
+    const btnPlay  = document.getElementById('btn-restart');
+    const hintEl   = document.getElementById('hint');
+
+    let W = 0, H = 0;
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ═══════════════════════════════════════════════════
+    //  CONFIGURATION
+    // ═══════════════════════════════════════════════════
+
+    const CFG = {
+      fontSize    : 30,     // world emoji render size (px)
+      headSize    : 36,     // head emoji render size (px)
+      segSpacing  : 32,     // distance between segment centres (px)
+      trailStep   : 4,      // record a trail point every N px of movement
+      spawnR      : 620,    // spawn objects within this radius of head
+      despawnR    : 840,    // remove objects beyond this radius
+      minObjs     : 28,     // minimum live world objects
+      maxObjs     : 65,     // maximum live world objects
+      collectDist : 24,     // collection trigger distance (px)
+      collideDist : 12,     // self-collision trigger distance (px)
+      skipSegs    : 7,      // ignore first N body segs for self-collision
+      baseSpeed   : 110,    // starting movement speed (px/s)
+      turnSpeed   : 3.8,    // direction interpolation multiplier
+      blurPx      : 2,      // blur for uncollected world objects (px)
+      blurAlpha   : 0.62,   // max opacity for uncollected objects
+    };
+
+    // ═══════════════════════════════════════════════════
+    //  GAME STATE
+    // ═══════════════════════════════════════════════════
+
+    let snake, trail, world, alive, dead;
+    let deathA      = 0;   // red death overlay alpha
+    let trailAcc    = 0;   // accumulated px since last trail point
+    let spawnTick   = 0;   // timer for periodic spawn/despawn
+    let startTime   = 0;
+    let restartLock = false;
+
+    function newGame() {
+      restartLock = true;
+      setTimeout(() => { restartLock = false; }, 600);
+
+      deathA    = 0;
+      trailAcc  = 0;
+      spawnTick = 0;
+      hintEl.style.opacity = '1';
+      overlay.classList.remove('show');
+
+      // Pre-fill trail so body segments have valid positions from frame 1
+      trail = [];
+      for (let i = 0; i < 500; i++) {
+        trail.push({ x: -i * CFG.trailStep * 0.5, y: 0 });
+      }
+
+      snake = {
+        x : 0, y : 0,          // head world position
+        vx: 1, vy: 0,          // current direction (unit vector)
+        tx: 1, ty: 0,          // target direction (from input)
+        face: pickFace(),
+        segs: [],              // body segments [{x, y, e}]
+        len : 3,
+        inputGiven: false,
+      };
+
+      // Two initial body segments
+      for (let i = 0; i < 2; i++) {
+        snake.segs.push({
+          x: -(i + 1) * CFG.segSpacing,
+          y: 0,
+          e: pickWorld(),
+        });
+      }
+
+      world  = [];
+      alive  = true;
+      dead   = false;
+      startTime = performance.now();
+
+      hudLen.textContent = snake.len;
+      spawnWorld(true);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  WORLD SPAWNING & DESPAWNING
+    // ═══════════════════════════════════════════════════
+
+    function spawnWorld(initial) {
+      // Dynamic target count scales mildly with snake length
+      const target = Math.min(
+        CFG.maxObjs,
+        CFG.minObjs + Math.floor(snake.len * 0.4),
+      );
+      let tries = 0;
+      while (world.length < target && tries++ < 350) {
+        const ang = Math.random() * Math.PI * 2;
+        // Bias toward mid-radius rather than clustering at edge
+        const r   = (0.25 + Math.random() * 0.75) * CFG.spawnR;
+        const wx  = snake.x + Math.cos(ang) * r;
+        const wy  = snake.y + Math.sin(ang) * r;
+
+        // Keep clear of head
+        if (dist2(wx, wy, snake.x, snake.y) < 70 * 70) continue;
+
+        // Keep clear of existing objects
+        let ok = true;
+        for (const o of world) {
+          if (dist2(wx, wy, o.x, o.y) < 30 * 30) { ok = false; break; }
+        }
+        if (!ok) continue;
+
+        world.push({
+          x       : wx,
+          y       : wy,
+          e       : pickWorld(),
+          alpha   : initial ? Math.random() * 0.5 + 0.1 : 0,
+          scale   : initial ? Math.random() * 0.7 + 0.3 : 0.01,
+          bob     : Math.random() * Math.PI * 2,
+          bobSpd  : 0.45 + Math.random() * 0.55,
+        });
+      }
+    }
+
+    function despawnWorld() {
+      const r2 = CFG.despawnR * CFG.despawnR;
+      for (let i = world.length - 1; i >= 0; i--) {
+        if (dist2(world[i].x, world[i].y, snake.x, snake.y) > r2) {
+          world.splice(i, 1);
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  MATH HELPERS
+    // ═══════════════════════════════════════════════════
+
+    function dist2(ax, ay, bx, by) {
+      const dx = ax - bx, dy = ay - by;
+      return dx * dx + dy * dy;
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  INPUT
+    // ═══════════════════════════════════════════════════
+
+    let touchAnchor = null;   // {sx, sy} – where the drag started
+    let mouseAnchor = null;
+    let mouseDown   = false;
+
+    function applyDir(fromX, fromY, toX, toY) {
+      const dx = toX - fromX;
+      const dy = toY - fromY;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 8) {
+        snake.tx = dx / len;
+        snake.ty = dy / len;
+        if (!snake.inputGiven) {
+          snake.inputGiven = true;
+          hintEl.style.opacity = '0';
+        }
+      }
+    }
+
+    // Touch ──────────────────────────────────────────
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      touchAnchor = { sx: t.clientX, sy: t.clientY };
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      if (!touchAnchor) return;
+      const t = e.touches[0];
+      applyDir(touchAnchor.sx, touchAnchor.sy, t.clientX, t.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend',   e => { e.preventDefault(); touchAnchor = null; }, { passive: false });
+    canvas.addEventListener('touchcancel',e => { e.preventDefault(); touchAnchor = null; }, { passive: false });
+
+    // Mouse (desktop) ────────────────────────────────
+    canvas.addEventListener('mousedown', e => {
+      mouseDown   = true;
+      mouseAnchor = { sx: e.clientX, sy: e.clientY };
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (!mouseDown || !mouseAnchor) return;
+      applyDir(mouseAnchor.sx, mouseAnchor.sy, e.clientX, e.clientY);
+    });
+    canvas.addEventListener('mouseup',    () => { mouseDown = false; mouseAnchor = null; });
+    canvas.addEventListener('mouseleave', () => { mouseDown = false; mouseAnchor = null; });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Prevent document-level scroll/zoom
+    document.addEventListener('touchmove',  e => e.preventDefault(), { passive: false });
+    document.addEventListener('touchstart', e => {
+      if (e.target !== canvas && e.target !== btnPlay) e.preventDefault();
+    }, { passive: false });
+
+    // ═══════════════════════════════════════════════════
+    //  UPDATE
+    // ═══════════════════════════════════════════════════
+
+    function update(dt) {
+      if (!alive) return;
+
+      // ── Direction interpolation ──────────────────────
+      snake.vx += (snake.tx - snake.vx) * CFG.turnSpeed * dt;
+      snake.vy += (snake.ty - snake.vy) * CFG.turnSpeed * dt;
+      const vLen = Math.sqrt(snake.vx * snake.vx + snake.vy * snake.vy);
+      if (vLen > 0.0001) { snake.vx /= vLen; snake.vy /= vLen; }
+
+      // ── Speed (scales with length + elapsed time) ───
+      const elapsed = (performance.now() - startTime) / 1000;
+      const speed   = CFG.baseSpeed + (snake.len - 3) * 1.8 + elapsed * 0.6;
+
+      // ── Move head ───────────────────────────────────
+      snake.x += snake.vx * speed * dt;
+      snake.y += snake.vy * speed * dt;
+
+      // ── Record trail ────────────────────────────────
+      trailAcc += speed * dt;
+      while (trailAcc >= CFG.trailStep) {
+        trail.unshift({ x: snake.x, y: snake.y });
+        trailAcc -= CFG.trailStep;
+      }
+      // Trim to needed length
+      const maxTrail = (snake.len + 4) * CFG.segSpacing / CFG.trailStep + 80;
+      if (trail.length > maxTrail) trail.length = maxTrail;
+
+      // ── Position body segments along trail ──────────
+      const step = CFG.segSpacing / CFG.trailStep;
+      for (let i = 0; i < snake.segs.length; i++) {
+        const idx = Math.round((i + 1) * step);
+        if (idx < trail.length) {
+          snake.segs[i].x = trail[idx].x;
+          snake.segs[i].y = trail[idx].y;
+        }
+      }
+
+      // ── Animate world objects (fade / pop in) ───────
+      for (const o of world) {
+        if (o.alpha < CFG.blurAlpha) o.alpha = Math.min(CFG.blurAlpha, o.alpha + dt * 1.6);
+        if (o.scale < 1)             o.scale = Math.min(1,             o.scale + dt * 2.8);
+      }
+
+      // ── Collect objects ──────────────────────────────
+      const cd2 = CFG.collectDist * CFG.collectDist;
+      for (let i = world.length - 1; i >= 0; i--) {
+        const o = world[i];
+        if (dist2(snake.x, snake.y, o.x, o.y) < cd2) {
+          snake.face = pickFace();
+          snake.segs.push({ x: o.x, y: o.y, e: o.e });
+          snake.len++;
+          world.splice(i, 1);
+          hudLen.textContent = snake.len;
+          break; // one collection per frame keeps things fair
+        }
+      }
+
+      // ── Self-collision ───────────────────────────────
+      if (snake.segs.length > CFG.skipSegs) {
+        const col2 = CFG.collideDist * CFG.collideDist;
+        for (let i = CFG.skipSegs; i < snake.segs.length; i++) {
+          const s = snake.segs[i];
+          if (dist2(snake.x, snake.y, s.x, s.y) < col2) {
+            triggerDeath();
+            return;
+          }
+        }
+      }
+
+      // ── Periodic spawn / despawn ─────────────────────
+      spawnTick += dt;
+      if (spawnTick >= 0.5) {
+        spawnTick = 0;
+        despawnWorld();
+        spawnWorld(false);
+      }
+    }
+
+    function triggerDeath() {
+      alive = false;
+      dead  = true;
+      goIcon.textContent = pickFace();
+      goStat.textContent = snake.len;
+      setTimeout(() => overlay.classList.add('show'), 850);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  RENDER
+    // ═══════════════════════════════════════════════════
+
+    /**
+     * Draw a single emoji.
+     * @param {string}  e      – emoji string
+     * @param {number}  x      – world x
+     * @param {number}  y      – world y
+     * @param {number}  size   – font size in px
+     * @param {number}  alpha  – global alpha
+     * @param {boolean} blur   – apply blur filter
+     */
+    function drawEmoji(e, x, y, size, alpha, blur) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (blur) ctx.filter = `blur(${CFG.blurPx}px)`;
+      ctx.font = `${size}px sans-serif`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(e, x, y);
+      ctx.restore();
+    }
+
+    function render(now) {
+      const t  = now * 0.001;   // seconds
+      const cx = W * 0.5 - snake.x;   // camera translate X
+      const cy = H * 0.5 - snake.y;   // camera translate Y
+
+      // Viewport half-diagonal (used for culling)
+      const cullR   = (Math.sqrt(W * W + H * H) * 0.5 + 60);
+      const cullR2  = cullR * cullR;
+
+      // ── Background ───────────────────────────────────
+      ctx.fillStyle = '#07071a';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // ── World objects — batched blur draw ────────────
+      ctx.save();
+      ctx.filter       = `blur(${CFG.blurPx}px)`;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font         = `${CFG.fontSize}px sans-serif`;
+
+      for (const o of world) {
+        // Cull objects outside the visible viewport
+        if (dist2(o.x, o.y, snake.x, snake.y) > cullR2) continue;
+
+        const bob = Math.sin(t * o.bobSpd + o.bob) * 3.5;
+        ctx.globalAlpha = o.alpha * o.scale;
+
+        if (o.scale < 0.999) {
+          // Scale pop-in: translate to object centre then scale
+          ctx.save();
+          ctx.translate(o.x, o.y + bob);
+          ctx.scale(o.scale, o.scale);
+          ctx.fillText(o.e, 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillText(o.e, o.x, o.y + bob);
+        }
+      }
+      ctx.restore(); // resets filter
+
+      // ── Snake body (tail → neck, so head renders last / on top) ─
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+
+      for (let i = snake.segs.length - 1; i >= 0; i--) {
+        const s      = snake.segs[i];
+        const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
+        // Tail segments slightly more transparent for depth effect
+        const alpha  = 0.72 + 0.28 * (1 - i / Math.max(1, snake.segs.length));
+        const size   = CFG.fontSize * (0.88 + 0.12 * (1 - i / Math.max(1, snake.segs.length)));
+        ctx.globalAlpha = alpha;
+        ctx.font = `${Math.round(size)}px sans-serif`;
+        ctx.fillText(s.e, s.x, s.y + wobble);
+      }
+
+      // ── Head ─────────────────────────────────────────
+      const headBob = Math.sin(t * 4.5) * 2.2;
+      ctx.globalAlpha = 1.0;
+      ctx.font = `${CFG.headSize}px sans-serif`;
+      ctx.fillText(snake.face, snake.x, snake.y + headBob);
+
+      ctx.restore(); // end camera transform
+
+      // ── Death red vignette ────────────────────────────
+      if (dead) {
+        deathA = Math.min(0.38, deathA + 0.014);
+        ctx.globalAlpha = deathA;
+        ctx.fillStyle = 'rgba(220, 20, 20, 1)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  GAME LOOP
+    // ═══════════════════════════════════════════════════
+
+    let prevTime = 0;
+
+    function loop(now) {
+      if (prevTime === 0) { prevTime = now; requestAnimationFrame(loop); return; }
+      const dt = Math.min((now - prevTime) / 1000, 0.05); // cap at 50 ms
+      prevTime = now;
+      update(dt);
+      render(now);
+      requestAnimationFrame(loop);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  RESTART BUTTON
+    // ═══════════════════════════════════════════════════
+
+    function onRestart(e) {
+      e.preventDefault();
+      if (restartLock) return;
+      newGame();
+    }
+    btnPlay.addEventListener('click',    onRestart);
+    btnPlay.addEventListener('touchend', onRestart, { passive: false });
+
+    // ═══════════════════════════════════════════════════
+    //  BOOT
+    // ═══════════════════════════════════════════════════
+
+    newGame();
+    requestAnimationFrame(loop);
+
+  }());
+  </script>
+</body>
+</html>
