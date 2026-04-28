@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Emoji Drift</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #07071a;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    canvas {
+      display: block;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #hud {
+      position: fixed;
+      top: env(safe-area-inset-top, 16px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.92);
+      font: 600 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      pointer-events: none;
+      z-index: 10;
+      padding: 7px 20px;
+      background: rgba(0, 0, 0, 0.42);
+      border-radius: 18px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      white-space: nowrap;
+      letter-spacing: 0.3px;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    #hud.visible { opacity: 1; }
+
+    /* Pause button */
+    #btn-pause {
+      position: fixed;
+      top: env(safe-area-inset-top, 14px);
+      right: 16px;
+      width: 40px; height: 40px;
+      border: none; border-radius: 12px;
+      background: rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: rgba(255,255,255,0.85);
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 10;
+      display: none;
+      align-items: center; justify-content: center;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+    #btn-pause.visible { display: flex; }
+    #btn-pause:active { transform: scale(0.88); }
+
+    /* Overlay */
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.62);
+      z-index: 20;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    #overlay.show { display: flex; }
+
+    /* Shared panel */
+    .panel {
+      background: rgba(12, 12, 30, 0.97);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 26px;
+      padding: 36px 28px;
+      text-align: center;
+      max-width: 300px;
+      width: 88%;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .panel-wide {
+      max-width: 440px;
+      width: 94%;
+      max-height: 82vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    @keyframes popIn {
+      from { transform: scale(0.6); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    .p-icon  { font-size: 58px; line-height: 1; margin-bottom: 10px; }
+    .p-title { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+    .p-sub   { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 20px; letter-spacing: 0.3px; }
+    .p-stat  { font-size: 60px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .p-label { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 24px; letter-spacing: 0.4px; }
+
+    .btn-action {
+      font-size: 17px; font-weight: 600;
+      padding: 15px 0;
+      width: 100%;
+      border: none; border-radius: 14px;
+      background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+      color: #fff; cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s, opacity 0.1s;
+      letter-spacing: 0.3px;
+      margin-bottom: 10px;
+    }
+    .btn-action:last-child { margin-bottom: 0; }
+    .btn-action:active { transform: scale(0.93); opacity: 0.82; }
+
+    .btn-ghost {
+      font-size: 15px; font-weight: 500;
+      padding: 12px 0;
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.78);
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s, opacity 0.1s;
+      letter-spacing: 0.3px;
+      margin-bottom: 10px;
+    }
+    .btn-ghost:last-child { margin-bottom: 0; }
+    .btn-ghost:active { transform: scale(0.93); opacity: 0.72; }
+
+    /* Emoji grids (collection panel) */
+    .emoji-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 16px;
+    }
+    .emoji-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      padding: 4px 2px;
+    }
+    .emoji-cell {
+      position: relative;
+      width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      border: 2px solid rgba(255,255,255,0.08);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.15s;
+      flex-shrink: 0;
+    }
+
+    /* Emoji text input (settings) */
+    .emoji-input-wrap {
+      margin: 16px 0 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    #head-input {
+      font-size: 56px;
+      line-height: 1;
+      width: 96px; height: 96px;
+      text-align: center;
+      background: rgba(255,255,255,0.07);
+      border: 2px solid rgba(255,255,255,0.18);
+      border-radius: 20px;
+      color: #fff;
+      caret-color: transparent;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #head-input:focus {
+      border-color: #7c3aed;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.35);
+    }
+    .emoji-input-hint {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.3px;
+    }
+
+    /* Rarity dot indicator */
+    .rarity-dot {
+      position: absolute;
+      bottom: 3px; right: 3px;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .r-common    { background: #9ca3af; }
+    .r-uncommon  { background: #4ade80; }
+    .r-rare      { background: #60a5fa; }
+    .r-epic      { background: #c084fc; }
+    .r-legendary { background: #facc15; box-shadow: 0 0 5px #facc15; }
+
+    /* Rarity legend row (above collection grid) */
+    .rarity-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 10px;
+      justify-content: center;
+      padding: 0 4px 12px;
+      width: 100%;
+    }
+    .rarity-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+      letter-spacing: 0.2px;
+    }
+    .rarity-legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .rarity-legend-dot.rl-legendary { background: #facc15; box-shadow: 0 0 4px #facc15; }
+    .rarity-legend-dot.rl-epic      { background: #c084fc; }
+    .rarity-legend-dot.rl-rare      { background: #60a5fa; }
+    .rarity-legend-dot.rl-uncommon  { background: #4ade80; }
+    .rarity-legend-dot.rl-common    { background: #9ca3af; }
+
+    /* Emoji detail panel */
+    #panel-emoji-detail .detail-emoji {
+      font-size: 96px;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    #panel-emoji-detail .detail-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+    #panel-emoji-detail .detail-rarity-badge {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 5px 16px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+      border: 1.5px solid;
+    }
+    .emoji-cell {
+      cursor: pointer;
+    }
+
+    #hint {
+      position: fixed;
+      bottom: env(safe-area-inset-bottom, 22px);
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.35);
+      font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      pointer-events: none;
+      z-index: 10;
+      transition: opacity 1.8s ease;
+      white-space: nowrap;
+      opacity: 0;
+    }
+    #hint.visible { opacity: 1; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="hud"><span id="hud-head">🐍</span>&nbsp;&nbsp;<span id="hud-len">1</span></div>
+  <div id="hint">✦ Touch and drag to steer ✦</div>
+  <button id="btn-pause">⏸</button>
+
+  <div id="overlay" class="show">
+
+    <!-- Start panel -->
+    <div id="panel-start" class="panel">
+      <div class="p-icon" id="start-face">🐍</div>
+      <div class="p-title">Emoji Drift</div>
+      <div class="p-sub">Collect emojis · Grow your snake</div>
+      <button id="btn-start" class="btn-action">▶ Start</button>
+      <button id="btn-collection" class="btn-ghost">🎒 My Collection</button>
+      <button id="btn-settings" class="btn-ghost">⚙️ Settings</button>
+    </div>
+
+    <!-- Game over panel -->
+    <div id="panel-over" class="panel" style="display:none">
+      <div class="p-icon" id="go-icon">💥</div>
+      <div class="p-title">Game Over</div>
+      <div class="p-stat" id="go-stat">0</div>
+      <div class="p-label">unique emoji types</div>
+      <button id="btn-restart" class="btn-action">▶ Play Again</button>
+      <button id="btn-to-menu" class="btn-ghost">🏠 Main Menu</button>
+    </div>
+
+    <!-- Pause panel -->
+    <div id="panel-pause" class="panel" style="display:none">
+      <div class="p-icon">⏸</div>
+      <div class="p-title">Paused</div>
+      <button id="btn-resume" class="btn-action">▶ Resume</button>
+      <button id="btn-quit" class="btn-ghost">🏠 Quit to Menu</button>
+    </div>
+
+    <!-- Collection panel -->
+    <div id="panel-collection" class="panel panel-wide" style="display:none">
+      <div class="p-title">🎒 My Collection</div>
+      <div class="p-sub" id="coll-count">0 emojis collected</div>
+      <div class="emoji-scroll">
+        <div class="emoji-grid" id="coll-grid"></div>
+      </div>
+      <button id="btn-coll-back" class="btn-ghost">← Back</button>
+    </div>
+
+    <!-- Emoji detail panel -->
+    <div id="panel-emoji-detail" class="panel" style="display:none">
+      <div class="detail-emoji" id="detail-emoji-char"></div>
+      <div class="detail-name" id="detail-emoji-name"></div>
+      <div class="detail-rarity-badge" id="detail-rarity-badge"></div>
+      <button id="btn-detail-back" class="btn-ghost">← Back to Collection</button>
+    </div>
+
+    <!-- Settings panel -->
+    <div id="panel-settings" class="panel" style="display:none">
+      <div class="p-title">⚙️ Settings</div>
+      <div class="p-sub">Type or paste any emoji as your snake's head</div>
+      <div class="emoji-input-wrap">
+        <input id="head-input" type="text" inputmode="text" autocomplete="off"
+               autocorrect="off" autocapitalize="off" spellcheck="false"
+               placeholder="😀" maxlength="10" />
+        <span class="emoji-input-hint">Only the first emoji will be used</span>
+      </div>
+      <button id="btn-settings-back" class="btn-ghost">← Back</button>
+    </div>
+
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ═══════════════════════════════════════════════════
+    //  EMOJI DATABASE
+    // ═══════════════════════════════════════════════════
+
+    /** Expressive / face-like emojis — also used as world objects (uncommon rarity) */
+    const FACE_POOL = [
+      '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘',
+      '😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🧐','😎','🥳','🥸','😏',
+      '😒','🙄','😬','😌','😔','😪','😵','🤯','🤠','😕','🙁','☹️','😦','😧','😨',
+      '😱','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾',
+      '🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🫠','🫡','🫢','🫣','🥹',
+      '😤','😩','😫','🥱','🤥','🤤','🤢','🤮','🤧','🥵','🥶','🥴','🤕','🤒','😷',
+    ];
+
+    /** World-object emoji pools organised by category */
+    const POOLS = {
+      food: [
+        '🍎','🍊','🍋','🍇','🍓','🫐','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🥑',
+        '🥦','🥬','🥒','🌶️','🌽','🥕','🧄','🧅','🥐','🥖','🫓','🧀','🥚','🥞',
+        '🧇','🥓','🥩','🍗','🍖','🌮','🌯','🍝','🍜','🍲','🍛','🍣','🍱','🥟',
+        '🍤','🍙','🍚','🥮','🧁','🎂','🍰','🍮','🍭','🍬','🍫','🍿','🍩','🍪',
+        '🍯','🍺','🍸','🍹','🥤','🧋','☕','🍵','🧃','🥛','🥂','🍾','🍷','🥗',
+        '🫙','🥫','🍱','🥙','🧆','🥘','🫕','🥣','🥧','🍼','🫗','🍶','🫖',
+      ],
+      animals: [
+        '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸',
+        '🐵','🙈','🙉','🙊','🐔','🐧','🐦','🦆','🦅','🦉','🦇','🐺','🐴','🦄',
+        '🐝','🦋','🐌','🐞','🦟','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑',
+        '🦐','🦀','🐠','🐟','🐬','🐳','🦈','🐊','🐅','🐆','🦓','🐘','🦛','🦏',
+        '🐪','🦒','🦘','🐎','🐑','🦙','🐐','🦌','🐕','🐈','🐓','🦃','🦚','🦜',
+        '🦢','🦩','🕊️','🐇','🦝','🦨','🦦','🦥','🐁','🐿️','🦔','🦬','🦣','🦤',
+        '🪲','🪳','🪰','🪱','🦭','🦫','🐾',
+      ],
+      nature: [
+        '🌸','🌺','🌻','🌹','🌷','💐','🌼','🪷','🌿','☘️','🍀','🍁','🍂','🍃',
+        '🌱','🌲','🌳','🌴','🪨','🪵','🌵','🎋','🌾','🍄','🌊','🌈','⭐','🌟',
+        '✨','💫','⚡','🔥','💧','🌙','☀️','❄️','☃️','⛄','🌪️','🌝','🌚','🌕',
+        '🌠','☄️','🪐','🏔️','⛰️','🌋','🏝️','🌅','🌄','🎇','🎆','🌃','🌌','🌠',
+        '🌬️','🌫️','⛅','🌤️','🌦️','🌧️','⛈️','🌩️','🌨️','🌑','🌒','🌓','🌔',
+      ],
+      objects: [
+        '⚽','🏀','🏈','⚾','🎾','🏐','🎱','🎯','🎲','🎮','🕹️','🧩','🎸','🎺',
+        '🎷','🎹','🥁','🎵','🎶','🎤','🎧','📱','💻','⌚','📷','🔭','🔬','💡',
+        '🔦','🕯️','🪔','🧲','💊','💉','🔑','🗝️','💎','💍','👑','🏆','🥇','🎖️',
+        '🎗️','🎫','🎪','🎡','🎢','🎠','🎭','🎨','🪆','🧸','🪅','🎀','🎁','🎊',
+        '🎉','🎈','🔮','🧿','🪄','⚜️','🏵️','🎎','🎐','🎑','🧧','🪬','🪩','🪞',
+        '🪟','🛋️','🚪','🪣','🧺','🧻','🧼','🪥','🫧','⚗️','🧪','🧫','🧬',
+      ],
+      symbols: [
+        '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓',
+        '💗','💖','💘','💝','💟','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤',
+        '💠','🔶','🔷','🔸','🔹','🔺','🔻','♠️','♥️','♦️','♣️','🃏','🀄','🎴',
+        '💯','✅','❎','⭕','❌','❓','❗','💥','💢','💫','💦','💨','💤','🕳️',
+        '🌀','🔔','🔕','📌','📍','🔖','🏷️','💬','💭','🗨️','🗯️','📣','📢',
+      ],
+    };
+
+    // ── Rarity system ──────────────────────────────────
+
+    /** Per-tier spawn weight.  e.g. one legendary spawn ≈ 1000× rarer than common. */
+    const RARITY_WEIGHTS = {
+      common:    1.000,
+      uncommon:  0.200,
+      rare:      0.045,
+      epic:      0.008,
+      legendary: 0.001,
+    };
+
+    /** HEX glow / badge colour per tier */
+    const RARITY_COLORS = {
+      common:    '#9ca3af',
+      uncommon:  '#4ade80',
+      rare:      '#60a5fa',
+      epic:      '#c084fc',
+      legendary: '#facc15',
+    };
+
+    /** Human-readable names for every emoji in the game */
+    const EMOJI_NAMES = {
+      // Faces
+      '😀':'Grinning Face','😃':'Grinning Face with Big Eyes','😄':'Grinning Face with Smiling Eyes',
+      '😁':'Beaming Face with Smiling Eyes','😆':'Grinning Squinting Face','😅':'Grinning Face with Sweat',
+      '🤣':'Rolling on the Floor Laughing','😂':'Face with Tears of Joy','🙂':'Slightly Smiling Face',
+      '😊':'Smiling Face with Smiling Eyes','😇':'Smiling Face with Halo','🥰':'Smiling Face with Hearts',
+      '😍':'Smiling Face with Heart-Eyes','🤩':'Star-Struck','😘':'Face Blowing a Kiss',
+      '😋':'Face Savoring Food','😛':'Face with Tongue','😜':'Winking Face with Tongue',
+      '🤪':'Zany Face','😝':'Squinting Face with Tongue','🤑':'Money-Mouth Face',
+      '🤗':'Smiling Face with Open Hands','🤭':'Face with Hand Over Mouth','🤫':'Shushing Face',
+      '🤔':'Thinking Face','🧐':'Face with Monocle','😎':'Smiling Face with Sunglasses',
+      '🥳':'Partying Face','🥸':'Disguised Face','😏':'Smirking Face','😒':'Unamused Face',
+      '🙄':'Face with Rolling Eyes','😬':'Grimacing Face','😌':'Relieved Face',
+      '😔':'Pensive Face','😪':'Sleepy Face','😵':'Dizzy Face','🤯':'Exploding Head',
+      '🤠':'Cowboy Hat Face','😕':'Confused Face','🙁':'Slightly Frowning Face',
+      '☹️':'Frowning Face','😦':'Frowning Face with Open Mouth','😧':'Anguished Face',
+      '😨':'Fearful Face','😱':'Face Screaming in Fear','😡':'Enraged Face','😠':'Angry Face',
+      '🤬':'Face with Symbols on Mouth','😈':'Smiling Face with Horns','👿':'Angry Face with Horns',
+      '💀':'Skull','☠️':'Skull and Crossbones','💩':'Pile of Poo','🤡':'Clown Face',
+      '👹':'Ogre','👺':'Goblin','👻':'Ghost','👽':'Alien','👾':'Alien Monster','🤖':'Robot',
+      '😺':'Grinning Cat','😸':'Grinning Cat with Smiling Eyes','😹':'Cat with Tears of Joy',
+      '😻':'Smiling Cat with Heart-Eyes','😼':'Cat with Wry Smile','😽':'Kissing Cat',
+      '🙀':'Weary Cat','😿':'Crying Cat','😾':'Pouting Cat','🫠':'Melting Face',
+      '🫡':'Saluting Face','🫢':'Face with Open Eyes and Hand Over Mouth','🫣':'Face with Peeking Eye',
+      '🥹':'Face Holding Back Tears','😤':'Face with Steam from Nose','😩':'Weary Face',
+      '😫':'Tired Face','🥱':'Yawning Face','🤥':'Lying Face','🤤':'Drooling Face',
+      '🤢':'Nauseated Face','🤮':'Face Vomiting','🤧':'Sneezing Face','🥵':'Hot Face',
+      '🥶':'Cold Face','🥴':'Woozy Face','🤕':'Face with Head-Bandage','🤒':'Face with Thermometer',
+      '😷':'Face with Medical Mask',
+      // Food
+      '🍎':'Red Apple','🍊':'Tangerine','🍋':'Lemon','🍇':'Grapes','🍓':'Strawberry',
+      '🫐':'Blueberries','🍒':'Cherries','🍑':'Peach','🥭':'Mango','🍍':'Pineapple',
+      '🥥':'Coconut','🥝':'Kiwi Fruit','🍅':'Tomato','🥑':'Avocado','🥦':'Broccoli',
+      '🥬':'Leafy Greens','🥒':'Cucumber','🌶️':'Hot Pepper','🌽':'Ear of Corn','🥕':'Carrot',
+      '🧄':'Garlic','🧅':'Onion','🥐':'Croissant','🥖':'Baguette Bread','🫓':'Flatbread',
+      '🧀':'Cheese Wedge','🥚':'Egg','🥞':'Pancakes','🧇':'Waffle','🥓':'Bacon',
+      '🥩':'Cut of Meat','🍗':'Poultry Leg','🍖':'Meat on Bone','🌮':'Taco','🌯':'Burrito',
+      '🍝':'Spaghetti','🍜':'Steaming Bowl','🍲':'Pot of Food','🍛':'Curry Rice','🍣':'Sushi',
+      '🍱':'Bento Box','🥟':'Dumpling','🍤':'Fried Shrimp','🍙':'Rice Ball','🍚':'Cooked Rice',
+      '🥮':'Moon Cake','🧁':'Cupcake','🎂':'Birthday Cake','🍰':'Shortcake','🍮':'Custard',
+      '🍭':'Lollipop','🍬':'Candy','🍫':'Chocolate Bar','🍿':'Popcorn','🍩':'Doughnut',
+      '🍪':'Cookie','🍯':'Honey Pot','🍺':'Beer Mug','🍸':'Cocktail Glass','🍹':'Tropical Drink',
+      '🥤':'Cup with Straw','🧋':'Bubble Tea','☕':'Hot Beverage','🍵':'Teacup Without Handle',
+      '🧃':'Beverage Box','🥛':'Glass of Milk','🥂':'Clinking Glasses',
+      '🍾':'Bottle with Popping Cork','🍷':'Wine Glass','🥗':'Green Salad','🫙':'Jar',
+      '🥫':'Canned Food','🥙':'Stuffed Flatbread','🧆':'Falafel','🥘':'Shallow Pan of Food',
+      '🫕':'Fondue','🥣':'Bowl with Spoon','🥧':'Pie','🍼':'Baby Bottle',
+      '🫗':'Pouring Liquid','🍶':'Sake','🫖':'Teapot',
+      // Animals
+      '🐶':'Dog Face','🐱':'Cat Face','🐭':'Mouse Face','🐹':'Hamster','🐰':'Rabbit Face',
+      '🦊':'Fox','🐻':'Bear','🐼':'Panda','🐨':'Koala','🐯':'Tiger Face','🦁':'Lion',
+      '🐮':'Cow Face','🐷':'Pig Face','🐸':'Frog','🐵':'Monkey Face','🙈':'See-No-Evil Monkey',
+      '🙉':'Hear-No-Evil Monkey','🙊':'Speak-No-Evil Monkey','🐔':'Chicken','🐧':'Penguin',
+      '🐦':'Bird','🦆':'Duck','🦅':'Eagle','🦉':'Owl','🦇':'Bat','🐺':'Wolf',
+      '🐴':'Horse Face','🦄':'Unicorn','🐝':'Honeybee','🦋':'Butterfly','🐌':'Snail',
+      '🐞':'Lady Beetle','🦟':'Mosquito','🕷️':'Spider','🦂':'Scorpion','🐢':'Turtle',
+      '🐍':'Snake','🦎':'Lizard','🦖':'T-Rex','🦕':'Sauropod','🐙':'Octopus','🦑':'Squid',
+      '🦐':'Shrimp','🦀':'Crab','🐠':'Tropical Fish','🐟':'Fish','🐬':'Dolphin','🐳':'Whale',
+      '🦈':'Shark','🐊':'Crocodile','🐅':'Tiger','🐆':'Leopard','🦓':'Zebra','🐘':'Elephant',
+      '🦛':'Hippopotamus','🦏':'Rhinoceros','🐪':'Camel','🦒':'Giraffe','🦘':'Kangaroo',
+      '🐎':'Horse','🐑':'Ewe','🦙':'Llama','🐐':'Goat','🦌':'Deer','🐕':'Dog','🐈':'Cat',
+      '🐓':'Rooster','🦃':'Turkey','🦚':'Peacock','🦜':'Parrot','🦢':'Swan','🦩':'Flamingo',
+      '🕊️':'Dove','🐇':'Rabbit','🦝':'Raccoon','🦨':'Skunk','🦦':'Otter','🦥':'Sloth',
+      '🐁':'Mouse','🐿️':'Chipmunk','🦔':'Hedgehog','🦬':'Bison','🦣':'Mammoth',
+      '🦤':'Dodo','🪲':'Beetle','🪳':'Cockroach','🪰':'Fly','🪱':'Worm','🦭':'Seal',
+      '🦫':'Beaver','🐾':'Paw Prints',
+      // Nature
+      '🌸':'Cherry Blossom','🌺':'Hibiscus','🌻':'Sunflower','🌹':'Rose','🌷':'Tulip',
+      '💐':'Bouquet','🌼':'Blossom','🪷':'Lotus','🌿':'Herb','☘️':'Shamrock','🍀':'Four-Leaf Clover',
+      '🍁':'Maple Leaf','🍂':'Fallen Leaf','🍃':'Leaf Fluttering in Wind','🌱':'Seedling',
+      '🌲':'Evergreen Tree','🌳':'Deciduous Tree','🌴':'Palm Tree','🪨':'Rock','🪵':'Wood',
+      '🌵':'Cactus','🎋':'Tanabata Tree','🌾':'Sheaf of Rice','🍄':'Mushroom','🌊':'Water Wave',
+      '🌈':'Rainbow','⭐':'Star','🌟':'Glowing Star','✨':'Sparkles','💫':'Dizzy',
+      '⚡':'Lightning','🔥':'Fire','💧':'Droplet','🌙':'Crescent Moon','☀️':'Sun',
+      '❄️':'Snowflake','☃️':'Snowman','⛄':'Snowman Without Snow','🌪️':'Tornado',
+      '🌝':'Full Moon Face','🌚':'New Moon Face','🌕':'Full Moon','🌠':'Shooting Star',
+      '☄️':'Comet','🪐':'Ringed Planet','🏔️':'Snow-Capped Mountain','⛰️':'Mountain',
+      '🌋':'Volcano','🏝️':'Desert Island','🌅':'Sunrise over Mountains','🌄':'Sunrise',
+      '🎇':'Sparkler','🎆':'Fireworks','🌃':'Night with Stars','🌌':'Milky Way',
+      '🌬️':'Wind Face','🌫️':'Fog','⛅':'Sun Behind Cloud','🌤️':'Sun Behind Small Cloud',
+      '🌦️':'Sun Behind Rain Cloud','🌧️':'Cloud with Rain','⛈️':'Cloud with Lightning and Rain',
+      '🌩️':'Cloud with Lightning','🌨️':'Cloud with Snow','🌑':'New Moon','🌒':'Waxing Crescent Moon',
+      '🌓':'First Quarter Moon','🌔':'Waxing Gibbous Moon',
+      // Objects
+      '⚽':'Soccer Ball','🏀':'Basketball','🏈':'American Football','⚾':'Baseball',
+      '🎾':'Tennis','🏐':'Volleyball','🎱':'Pool 8 Ball','🎯':'Bullseye','🎲':'Game Die',
+      '🎮':'Video Game','🕹️':'Joystick','🧩':'Puzzle Piece','🎸':'Guitar','🎺':'Trumpet',
+      '🎷':'Saxophone','🎹':'Musical Keyboard','🥁':'Drum','🎵':'Musical Note',
+      '🎶':'Musical Notes','🎤':'Microphone','🎧':'Headphones','📱':'Mobile Phone',
+      '💻':'Laptop','⌚':'Watch','📷':'Camera','🔭':'Telescope','🔬':'Microscope',
+      '💡':'Light Bulb','🔦':'Flashlight','🕯️':'Candle','🪔':'Diya Lamp','🧲':'Magnet',
+      '💊':'Pill','💉':'Syringe','🔑':'Key','🗝️':'Old Key','💎':'Gem Stone','💍':'Ring',
+      '👑':'Crown','🏆':'Trophy','🥇':'1st Place Medal','🎖️':'Military Medal',
+      '🎗️':'Reminder Ribbon','🎫':'Ticket','🎪':'Circus Tent','🎡':'Ferris Wheel',
+      '🎢':'Roller Coaster','🎠':'Carousel Horse','🎭':'Performing Arts','🎨':'Artist Palette',
+      '🪆':'Nesting Dolls','🧸':'Teddy Bear','🪅':'Piñata','🎀':'Ribbon','🎁':'Wrapped Gift',
+      '🎊':'Confetti Ball','🎉':'Party Popper','🎈':'Balloon','🔮':'Crystal Ball',
+      '🧿':'Nazar Amulet','🪄':'Magic Wand','⚜️':'Fleur-de-Lis','🏵️':'Rosette',
+      '🎎':'Japanese Dolls','🎐':'Wind Chime','🎑':'Moon Viewing Ceremony','🧧':'Red Envelope',
+      '🪬':'Hamsa','🪩':'Mirror Ball','🪞':'Mirror','🪟':'Window','🛋️':'Couch and Lamp',
+      '🚪':'Door','🪣':'Bucket','🧺':'Basket','🧻':'Roll of Paper','🧼':'Soap',
+      '🪥':'Toothbrush','🫧':'Bubbles','⚗️':'Alembic','🧪':'Test Tube','🧫':'Petri Dish',
+      '🧬':'DNA',
+      // Symbols
+      '❤️':'Red Heart','🧡':'Orange Heart','💛':'Yellow Heart','💚':'Green Heart',
+      '💙':'Blue Heart','💜':'Purple Heart','🖤':'Black Heart','🤍':'White Heart',
+      '🤎':'Brown Heart','💔':'Broken Heart','❣️':'Heart Exclamation','💕':'Two Hearts',
+      '💞':'Revolving Hearts','💓':'Beating Heart','💗':'Growing Heart','💖':'Sparkling Heart',
+      '💘':'Heart with Arrow','💝':'Heart with Ribbon','💟':'Heart Decoration',
+      '🔴':'Red Circle','🟠':'Orange Circle','🟡':'Yellow Circle','🟢':'Green Circle',
+      '🔵':'Blue Circle','🟣':'Purple Circle','⚫':'Black Circle','⚪':'White Circle',
+      '🟤':'Brown Circle','💠':'Diamond with a Dot','🔶':'Large Orange Diamond',
+      '🔷':'Large Blue Diamond','🔸':'Small Orange Diamond','🔹':'Small Blue Diamond',
+      '🔺':'Red Triangle Pointed Up','🔻':'Red Triangle Pointed Down','♠️':'Spade Suit',
+      '♥️':'Heart Suit','♦️':'Diamond Suit','♣️':'Club Suit','🃏':'Joker','🀄':'Mahjong Red Dragon',
+      '🎴':'Flower Playing Cards','💯':'Hundred Points','✅':'Check Mark Button',
+      '❎':'Cross Mark Button','⭕':'Red Circle','❌':'Cross Mark','❓':'Red Question Mark',
+      '❗':'Red Exclamation Mark','💥':'Collision','💢':'Anger Symbol','💦':'Sweat Droplets',
+      '💨':'Dashing Away','💤':'Zzz','🕳️':'Hole','🌀':'Cyclone','🔔':'Bell','🔕':'Bell with Slash',
+      '📌':'Pushpin','📍':'Round Pushpin','🔖':'Bookmark','🏷️':'Label','💬':'Speech Balloon',
+      '💭':'Thought Balloon','🗨️':'Left Speech Bubble','🗯️':'Right Anger Bubble',
+      '📣':'Megaphone','📢':'Loudspeaker',
+    };
+
+    /** Specific emojis that are elevated above their pool default */
+    const RARITY_OVERRIDES = {
+      // legendary
+      '👺': 'legendary',
+      // epic
+      '💀': 'epic', '☠️': 'epic', '👿': 'epic', '😈': 'epic',
+      '🤖': 'epic', '👾': 'epic', '👽': 'epic', '🤡': 'epic',
+      '💎': 'epic', '👑': 'epic', '🏆': 'epic', '🔮': 'epic',
+      '☄️': 'epic', '🪄': 'epic', '🌌': 'epic',
+      // rare
+      '👻': 'rare', '💩': 'rare', '🤯': 'rare', '😵': 'rare', '😱': 'rare',
+      '🦄': 'rare', '🦋': 'rare', '🕷️': 'rare', '🦂': 'rare',
+      '🦖': 'rare', '🦕': 'rare', '🦈': 'rare', '🐊': 'rare',
+      '🐅': 'rare', '🐆': 'rare', '🎭': 'rare', '🎨': 'rare',
+      '🌈': 'rare', '🔥': 'rare', '⭐': 'rare', '🌟': 'rare',
+      '✨': 'rare', '💫': 'rare', '⚡': 'rare', '❤️': 'rare',
+      '💠': 'rare', '🎆': 'rare', '🎇': 'rare', '🧿': 'rare',
+    };
+
+    /** Set for O(1) face lookup */
+    const FACE_SET = new Set(FACE_POOL);
+
+    function getRarity(e) {
+      if (RARITY_OVERRIDES[e]) return RARITY_OVERRIDES[e];
+      if (FACE_SET.has(e))     return 'uncommon';
+      return 'common';
+    }
+
+    /** Flat weighted pool built once at startup — all pool + face emojis */
+    const WORLD_POOL_FLAT = [];
+    let   WORLD_POOL_TOTAL = 0;
+    (function buildWorldPool() {
+      const seen = new Set();
+      const add = (e) => {
+        if (seen.has(e)) return;
+        seen.add(e);
+        const rarity = getRarity(e);
+        const w      = RARITY_WEIGHTS[rarity];
+        WORLD_POOL_FLAT.push({ e, rarity, w });
+        WORLD_POOL_TOTAL += w;
+      };
+      for (const cat of Object.values(POOLS)) for (const e of cat) add(e);
+      for (const e of FACE_POOL)                                    add(e);
+    }());
+
+    function pickWorldItem() {
+      let r = Math.random() * WORLD_POOL_TOTAL;
+      for (const item of WORLD_POOL_FLAT) {
+        r -= item.w;
+        if (r <= 0) return item;
+      }
+      return WORLD_POOL_FLAT[0];
+    }
+    function pickWorld() { return pickWorldItem().e; }
+
+    // ═══════════════════════════════════════════════════
+    //  CANVAS SETUP — devicePixelRatio aware
+    // ═══════════════════════════════════════════════════
+
+    const canvas = document.getElementById('canvas');
+    const ctx    = canvas.getContext('2d');
+
+    let W = 0, H = 0;
+    function resize() {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
+      canvas.width  = Math.round(W * dpr);
+      canvas.height = Math.round(H * dpr);
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ═══════════════════════════════════════════════════
+    //  DOM REFS
+    // ═══════════════════════════════════════════════════
+
+    const hudEl       = document.getElementById('hud');
+    const hudHead     = document.getElementById('hud-head');
+    const hudLen      = document.getElementById('hud-len');
+    const goIcon      = document.getElementById('go-icon');
+    const goStat      = document.getElementById('go-stat');
+    const overlay     = document.getElementById('overlay');
+    const panelStart  = document.getElementById('panel-start');
+    const panelOver   = document.getElementById('panel-over');
+    const panelPause  = document.getElementById('panel-pause');
+    const panelColl   = document.getElementById('panel-collection');
+    const panelSett   = document.getElementById('panel-settings');
+    const panelDetail = document.getElementById('panel-emoji-detail');
+    const startFace   = document.getElementById('start-face');
+    const btnStart    = document.getElementById('btn-start');
+    const btnRestart  = document.getElementById('btn-restart');
+    const btnPause    = document.getElementById('btn-pause');
+    const btnResume   = document.getElementById('btn-resume');
+    const btnQuit     = document.getElementById('btn-quit');
+    const btnToMenu   = document.getElementById('btn-to-menu');
+    const btnColl     = document.getElementById('btn-collection');
+    const btnSett     = document.getElementById('btn-settings');
+    const btnCollBack = document.getElementById('btn-coll-back');
+    const btnSettBack = document.getElementById('btn-settings-back');
+    const btnDetailBack = document.getElementById('btn-detail-back');
+    const collCount   = document.getElementById('coll-count');
+    const collGrid    = document.getElementById('coll-grid');
+    const headInput   = document.getElementById('head-input');
+    const hintEl      = document.getElementById('hint');
+    const detailEmojiChar  = document.getElementById('detail-emoji-char');
+    const detailEmojiName  = document.getElementById('detail-emoji-name');
+    const detailRarityBadge = document.getElementById('detail-rarity-badge');
+
+    const ALL_PANELS  = [panelStart, panelOver, panelPause, panelColl, panelSett, panelDetail];
+
+    // ═══════════════════════════════════════════════════
+    //  CONFIGURATION
+    // ═══════════════════════════════════════════════════
+
+    const CFG = {
+      fontSize    : 30,
+      headSize    : 38,
+      bodySize    : 22,
+      segSpacing  : 30,
+      spawnR      : 620,
+      despawnR    : 840,
+      minObjs     : 28,
+      maxObjs     : 65,
+      collectDist : 28,
+      collideDist : 12,
+      skipSegs    : 7,
+      minSpeed    : 60,
+      baseSpeed   : 300,
+      turnSpeed   : 6.0,
+      driftFactor : 0,
+      joystickR   : 80,
+      joystickKnob: 22,
+      blurPx      : 2,
+      blurAlpha   : 0.62,
+    };
+
+    // ═══════════════════════════════════════════════════
+    //  PERSISTENCE  (localStorage)
+    // ═══════════════════════════════════════════════════
+
+    const LS_HEAD = 'emojiDrift_head';
+    const LS_COLL = 'emojiDrift_collection';
+
+    let savedHead;        // chosen head emoji (persisted)
+    let globalCollection; // Set<string> of all emojis ever collected
+
+    function loadPersist() {
+      try {
+        const h = localStorage.getItem(LS_HEAD);
+        savedHead = (h && firstGrapheme(h)) ? h : null;
+      } catch { savedHead = null; }
+      if (!savedHead) {
+        savedHead = FACE_POOL[Math.floor(Math.random() * FACE_POOL.length)];
+        try { localStorage.setItem(LS_HEAD, savedHead); } catch {}
+      }
+      try {
+        const raw = localStorage.getItem(LS_COLL);
+        globalCollection = raw ? new Set(JSON.parse(raw)) : new Set();
+      } catch { globalCollection = new Set(); }
+    }
+
+    function savePersist() {
+      try {
+        localStorage.setItem(LS_HEAD, savedHead);
+        localStorage.setItem(LS_COLL, JSON.stringify([...globalCollection]));
+      } catch {}
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  GAME STATE
+    // ═══════════════════════════════════════════════════
+
+    // phase: 'start' | 'playing' | 'paused' | 'dead'
+    let phase      = 'start';
+    let snake      = null;
+    let trail      = [];
+    let world      = [];
+    let deathA     = 0;
+    let spawnTick  = 0;
+    let startTime  = 0;
+    let pausedMs   = 0;   // total ms spent paused this game
+    let pauseStart = 0;   // when the current pause began
+    let restartLock = false;
+    let collectedTypes = new Set(); // unique types this session
+
+    // ── Virtual joystick state ───────────────────────
+    const joystick = {
+      active : false,
+      cx: 0, cy: 0,
+      curX: 0, curY: 0,
+      dx: 0, dy: 0,
+      factor: 0,
+    };
+
+    // ═══════════════════════════════════════════════════
+    //  PANEL HELPERS
+    // ═══════════════════════════════════════════════════
+
+    function showPanel(panel) {
+      ALL_PANELS.forEach(p => { p.style.display = (p === panel) ? '' : 'none'; });
+      overlay.classList.add('show');
+    }
+    function hideOverlay() { overlay.classList.remove('show'); }
+
+    // ═══════════════════════════════════════════════════
+    //  SETTINGS UI — head picker grid
+    // ═══════════════════════════════════════════════════
+
+    // ── Settings: single-emoji text input ────────────
+    //  Extract the first grapheme cluster from an arbitrary string.
+    //  Falls back to the first Unicode code point when Intl.Segmenter is unavailable.
+    function firstGrapheme(str) {
+      if (!str) return '';
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        const seg = new Intl.Segmenter();
+        for (const { segment } of seg.segment(str)) return segment;
+      }
+      // Fallback: iterate code points and grab the first
+      const cp = str.codePointAt(0);
+      return cp !== undefined ? String.fromCodePoint(cp) : str[0];
+    }
+
+    function initHeadInput() {
+      headInput.value = savedHead;
+      headInput.addEventListener('input', () => {
+        const raw   = headInput.value;
+        const first = firstGrapheme(raw);
+        headInput.value = first;
+        if (first && first !== savedHead) {
+          savedHead = first;
+          savePersist();
+          startFace.textContent = savedHead;
+        }
+      });
+      // On mobile keyboards that fire compositionend instead of input:
+      headInput.addEventListener('compositionend', () => {
+        headInput.dispatchEvent(new Event('input'));
+      });
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  COLLECTION UI
+    // ═══════════════════════════════════════════════════
+
+    const RARITY_TIERS = [
+      { key: 'legendary', label: 'Legendary' },
+      { key: 'epic',      label: 'Epic' },
+      { key: 'rare',      label: 'Rare' },
+      { key: 'uncommon',  label: 'Uncommon' },
+      { key: 'common',    label: 'Common' },
+    ];
+
+    function buildRarityLegend() {
+      const legend = document.createElement('div');
+      legend.className = 'rarity-legend';
+      for (const { key, label } of RARITY_TIERS) {
+        const item = document.createElement('div');
+        item.className = 'rarity-legend-item';
+        const dot = document.createElement('span');
+        dot.className = 'rarity-legend-dot rl-' + key;
+        const text = document.createElement('span');
+        text.textContent = label;
+        item.appendChild(dot);
+        item.appendChild(text);
+        legend.appendChild(item);
+      }
+      return legend;
+    }
+
+    function openEmojiDetail(emoji) {
+      const rarity = getRarity(emoji);
+      const color  = RARITY_COLORS[rarity];
+      const label  = rarity.charAt(0).toUpperCase() + rarity.slice(1);
+      detailEmojiChar.textContent  = emoji;
+      detailEmojiName.textContent  = EMOJI_NAMES[emoji] || 'Unknown Emoji';
+      detailRarityBadge.textContent = label;
+      detailRarityBadge.style.color       = color;
+      detailRarityBadge.style.borderColor = color + '99';
+      detailRarityBadge.style.background  = color + '18';
+      showPanel(panelDetail);
+    }
+
+    function buildCollectionGrid() {
+      collGrid.innerHTML = '';
+      const RARITY_ORDER = { legendary: 0, epic: 1, rare: 2, uncommon: 3, common: 4 };
+      const sorted = [...globalCollection].sort((a, b) =>
+        (RARITY_ORDER[getRarity(a)] || 4) - (RARITY_ORDER[getRarity(b)] || 4)
+      );
+      const n = sorted.length;
+      collCount.textContent = n === 0
+        ? 'No emojis collected yet'
+        : n + ' unique emoji' + (n !== 1 ? 's' : '') + ' collected';
+
+      collGrid.appendChild(buildRarityLegend());
+
+      if (n === 0) {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'color:rgba(255,255,255,0.3);font-size:14px;padding:24px 0';
+        msg.textContent = 'Start playing to fill your collection!';
+        collGrid.appendChild(msg);
+        return;
+      }
+      for (const e of sorted) {
+        const rarity = getRarity(e);
+        const cell   = document.createElement('div');
+        cell.className   = 'emoji-cell';
+        cell.textContent = e;
+        cell.style.borderColor = RARITY_COLORS[rarity] + '66';
+        const dot = document.createElement('span');
+        dot.className = 'rarity-dot r-' + rarity;
+        cell.appendChild(dot);
+        cell.addEventListener('click', () => openEmojiDetail(e));
+        collGrid.appendChild(cell);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  IDLE SNAKE & WORLD (start screen background)
+    // ═══════════════════════════════════════════════════
+
+    function initIdleSnake() {
+      snake = {
+        x: 0, y: 0,
+        vx: 1, vy: 0,
+        tx: 1, ty: 0,
+        face: savedHead,
+        segs: [],
+        len: 1,
+      };
+    }
+
+    function initIdleWorld() {
+      world = [];
+      for (let i = 0; i < 42; i++) {
+        const ang  = Math.random() * Math.PI * 2;
+        const r    = 55 + Math.random() * 500;
+        const item = pickWorldItem();
+        world.push({
+          x     : Math.cos(ang) * r,
+          y     : Math.sin(ang) * r,
+          e     : item.e,
+          rarity: item.rarity,
+          alpha : Math.random() * 0.4 + 0.08,
+          scale : Math.random() * 0.6 + 0.3,
+          bob   : Math.random() * Math.PI * 2,
+          bobSpd: 0.45 + Math.random() * 0.55,
+        });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  BEGIN / RESTART GAME
+    // ═══════════════════════════════════════════════════
+
+    function beginGame() {
+      restartLock = true;
+      setTimeout(() => { restartLock = false; }, 600);
+
+      phase     = 'playing';
+      deathA    = 0;
+      spawnTick = 0;
+      pausedMs  = 0;
+      collectedTypes = new Set();
+
+      hideOverlay();
+      hudEl.classList.add('visible');
+      hintEl.classList.add('visible');
+      btnPause.classList.add('visible');
+
+      // Dense 1-px pre-fill so body segments are accurate from frame 1
+      trail = [];
+      for (let i = 0; i < 3000; i++) trail.push({ x: -i, y: 0 });
+
+      snake = {
+        x: 0, y: 0,
+        vx: 1, vy: 0,
+        tx: 1, ty: 0,
+        face: savedHead,  // fixed for this game; only 👺 can override it
+        segs: [],         // starts with NO body — head only
+        len : 1,
+      };
+
+      hudHead.textContent = snake.face;
+      hudLen.textContent  = snake.len;
+      world = [];
+      startTime = performance.now();
+      spawnWorld(true);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  PAUSE / RESUME / QUIT
+    // ═══════════════════════════════════════════════════
+
+    function pauseGame() {
+      if (phase !== 'playing') return;
+      phase      = 'paused';
+      pauseStart = performance.now();
+      joystickEnd();
+      showPanel(panelPause);
+    }
+
+    function resumeGame() {
+      if (phase !== 'paused') return;
+      pausedMs += performance.now() - pauseStart;
+      phase = 'playing';
+      hideOverlay();
+    }
+
+    function quitToMenu() {
+      if (phase === 'paused') pausedMs += performance.now() - pauseStart;
+      phase = 'start';
+      joystickEnd();
+      hudEl.classList.remove('visible');
+      btnPause.classList.remove('visible');
+      hintEl.classList.remove('visible');
+      initIdleSnake();
+      initIdleWorld();
+      startFace.textContent = savedHead;
+      showPanel(panelStart);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  WORLD SPAWNING & DESPAWNING
+    // ═══════════════════════════════════════════════════
+
+    function spawnWorld(initial) {
+      const target = Math.min(CFG.maxObjs, CFG.minObjs + Math.floor(snake.len * 0.4));
+      let tries = 0;
+      while (world.length < target && tries++ < 350) {
+        const ang = Math.random() * Math.PI * 2;
+        const r   = (0.25 + Math.random() * 0.75) * CFG.spawnR;
+        const wx  = snake.x + Math.cos(ang) * r;
+        const wy  = snake.y + Math.sin(ang) * r;
+        if (dist2(wx, wy, snake.x, snake.y) < 70 * 70) continue;
+        let ok = true;
+        for (const o of world) {
+          if (dist2(wx, wy, o.x, o.y) < 30 * 30) { ok = false; break; }
+        }
+        if (!ok) continue;
+        const item = pickWorldItem();
+        world.push({
+          x     : wx,
+          y     : wy,
+          e     : item.e,
+          rarity: item.rarity,
+          alpha : initial ? Math.random() * 0.5 + 0.1 : 0,
+          scale : initial ? Math.random() * 0.7 + 0.3 : 0.01,
+          bob   : Math.random() * Math.PI * 2,
+          bobSpd: 0.45 + Math.random() * 0.55,
+        });
+      }
+    }
+
+    function despawnWorld() {
+      const r2 = CFG.despawnR * CFG.despawnR;
+      for (let i = world.length - 1; i >= 0; i--) {
+        if (dist2(world[i].x, world[i].y, snake.x, snake.y) > r2) world.splice(i, 1);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  MATH HELPERS
+    // ═══════════════════════════════════════════════════
+
+    function dist2(ax, ay, bx, by) {
+      const dx = ax - bx, dy = ay - by;
+      return dx * dx + dy * dy;
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  INPUT — Virtual joystick
+    // ═══════════════════════════════════════════════════
+
+    function joystickStart(cx, cy) {
+      joystick.active = true;
+      joystick.cx = cx; joystick.cy = cy;
+      joystick.curX = cx; joystick.curY = cy;
+      joystick.dx = 0; joystick.dy = 0;
+      joystick.factor = 0;
+    }
+
+    function joystickMove(x, y) {
+      if (!joystick.active) return;
+      let dx  = x - joystick.cx;
+      let dy  = y - joystick.cy;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      joystick.factor = Math.min(d / CFG.joystickR, 1);
+      if (d > CFG.joystickR) { dx = (dx / d) * CFG.joystickR; dy = (dy / d) * CFG.joystickR; }
+      joystick.dx   = dx; joystick.dy = dy;
+      joystick.curX = joystick.cx + dx;
+      joystick.curY = joystick.cy + dy;
+      if (d > 8 && phase === 'playing') {
+        snake.tx = (x - joystick.cx) / d;
+        snake.ty = (y - joystick.cy) / d;
+        hintEl.classList.remove('visible');
+      }
+    }
+
+    function joystickEnd() {
+      joystick.active = false;
+      joystick.factor = 0;
+    }
+
+    // Touch events ────────────────────────────────────
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (phase !== 'playing') return;
+      const t = e.changedTouches[0];
+      joystickStart(t.clientX, t.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      if (!joystick.active) return;
+      const t = e.changedTouches[0];
+      joystickMove(t.clientX, t.clientY);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend',    e => { e.preventDefault(); joystickEnd(); }, { passive: false });
+    canvas.addEventListener('touchcancel', e => { e.preventDefault(); joystickEnd(); }, { passive: false });
+
+    // Mouse (desktop) ─────────────────────────────────
+    canvas.addEventListener('mousedown', e => {
+      if (phase !== 'playing') return;
+      joystickStart(e.clientX, e.clientY);
+    });
+    canvas.addEventListener('mousemove', e => {
+      if (!joystick.active) return;
+      joystickMove(e.clientX, e.clientY);
+    });
+    canvas.addEventListener('mouseup',    () => joystickEnd());
+    canvas.addEventListener('mouseleave', () => joystickEnd());
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Block document scroll / zoom but allow scrolling inside the collection grid
+    document.addEventListener('touchmove', e => {
+      if (e.target.closest('.emoji-scroll')) return;
+      e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('touchstart', e => {
+      if (e.target.closest('.panel') || e.target === btnPause) return;
+      e.preventDefault();
+    }, { passive: false });
+
+    // ═══════════════════════════════════════════════════
+    //  UPDATE
+    // ═══════════════════════════════════════════════════
+
+    function update(dt) {
+      // World objects animate in all phases
+      for (const o of world) {
+        if (o.alpha < CFG.blurAlpha) o.alpha = Math.min(CFG.blurAlpha, o.alpha + dt * 1.6);
+        if (o.scale < 1)             o.scale = Math.min(1,             o.scale + dt * 2.8);
+      }
+
+      if (phase !== 'playing') return;
+
+      // ── Direction interpolation ───────────────────────
+      snake.vx += (snake.tx - snake.vx) * CFG.turnSpeed * dt;
+      snake.vy += (snake.ty - snake.vy) * CFG.turnSpeed * dt;
+      const vLen = Math.sqrt(snake.vx * snake.vx + snake.vy * snake.vy);
+      if (vLen > 0.0001) { snake.vx /= vLen; snake.vy /= vLen; }
+
+      // ── Speed ─────────────────────────────────────────
+      // Subtract paused time from elapsed so pausing doesn't inflate max speed
+      const elapsed    = (performance.now() - startTime - pausedMs) / 1000;
+      const dynamicMax = CFG.baseSpeed + (snake.len - 1) * 1.8 + elapsed * 0.5;
+      const factor     = joystick.active ? joystick.factor : CFG.driftFactor;
+      const speed      = CFG.minSpeed + factor * (dynamicMax - CFG.minSpeed);
+
+      // ── Move head ────────────────────────────────────
+      snake.x += snake.vx * speed * dt;
+      snake.y += snake.vy * speed * dt;
+
+      // ── Record trail point every frame ───────────────
+      trail.unshift({ x: snake.x, y: snake.y });
+      const maxTrail = Math.max(3000, (snake.segs.length + 20) * CFG.segSpacing);
+      if (trail.length > maxTrail) trail.length = maxTrail;
+
+      // ── Distance-interpolated body placement ─────────
+      const neededDist = (snake.segs.length + 1) * CFG.segSpacing;
+      const cumul = [0];
+      let ci = 0;
+      while (ci < trail.length - 1 && cumul[ci] < neededDist) {
+        const ddx = trail[ci + 1].x - trail[ci].x;
+        const ddy = trail[ci + 1].y - trail[ci].y;
+        cumul.push(cumul[ci] + Math.sqrt(ddx * ddx + ddy * ddy));
+        ci++;
+      }
+      const cLast = cumul.length - 1;
+      for (let i = 0; i < snake.segs.length; i++) {
+        const d = (i + 1) * CFG.segSpacing;
+        if (d >= cumul[cLast]) {
+          snake.segs[i].x = trail[cLast].x;
+          snake.segs[i].y = trail[cLast].y;
+          continue;
+        }
+        let a = 0, b = cLast;
+        while (b - a > 1) {
+          const m = (a + b) >> 1;
+          if (cumul[m] < d) a = m; else b = m;
+        }
+        const f = (d - cumul[a]) / (cumul[b] - cumul[a] + 1e-9);
+        snake.segs[i].x = trail[a].x + (trail[b].x - trail[a].x) * f;
+        snake.segs[i].y = trail[a].y + (trail[b].y - trail[a].y) * f;
+      }
+
+      // ── Collect objects ───────────────────────────────
+      const cd2 = CFG.collectDist * CFG.collectDist;
+      for (let i = world.length - 1; i >= 0; i--) {
+        const o = world[i];
+        if (dist2(snake.x, snake.y, o.x, o.y) < cd2) {
+          // Add to both session set and persistent global collection
+          collectedTypes.add(o.e);
+          globalCollection.add(o.e);
+          savePersist();
+          // 👺 legendary power: temporarily become the goblin
+          if (o.e === '👺') {
+            snake.face = '👺';
+            hudHead.textContent = '👺';
+          }
+          snake.segs.push({ x: o.x, y: o.y, e: o.e, rarity: o.rarity });
+          snake.len++;
+          world.splice(i, 1);
+          hudLen.textContent = snake.len;
+          break;
+        }
+      }
+
+      // ── Self-collision ────────────────────────────────
+      if (snake.segs.length > CFG.skipSegs) {
+        const col2 = CFG.collideDist * CFG.collideDist;
+        for (let i = CFG.skipSegs; i < snake.segs.length; i++) {
+          if (dist2(snake.x, snake.y, snake.segs[i].x, snake.segs[i].y) < col2) {
+            triggerDeath();
+            return;
+          }
+        }
+      }
+
+      // ── Periodic spawn / despawn ──────────────────────
+      spawnTick += dt;
+      if (spawnTick >= 0.5) {
+        spawnTick = 0;
+        despawnWorld();
+        spawnWorld(false);
+      }
+    }
+
+    function triggerDeath() {
+      phase = 'dead';
+      joystickEnd();
+      btnPause.classList.remove('visible');
+      goIcon.textContent = FACE_POOL[Math.floor(Math.random() * FACE_POOL.length)];
+      goStat.textContent = collectedTypes.size;
+      hudEl.classList.remove('visible');
+      setTimeout(() => { showPanel(panelOver); }, 850);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  RENDER
+    // ═══════════════════════════════════════════════════
+
+    function render(now) {
+      const t = now * 0.001;
+
+      const cx    = W * 0.5 - snake.x;
+      const cy    = H * 0.5 - snake.y;
+      const cullR = Math.sqrt(W * W + H * H) * 0.5 + 60;
+      const cullR2 = cullR * cullR;
+
+      // ── Background ────────────────────────────────────
+      ctx.fillStyle = '#07071a';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // ── Rare+ aura circles under world objects ────────
+      ctx.save();
+      ctx.filter = 'none';
+      for (const o of world) {
+        if (o.rarity === 'common' || o.rarity === 'uncommon') continue;
+        if (dist2(o.x, o.y, snake.x, snake.y) > cullR2) continue;
+        const bob   = Math.sin(t * o.bobSpd + o.bob) * 3.5;
+        const pulse = o.rarity === 'legendary'
+          ? 0.45 + 0.45 * Math.abs(Math.sin(t * 3.5))
+          : 0.28;
+        ctx.globalAlpha = o.alpha * pulse;
+        ctx.fillStyle   = RARITY_COLORS[o.rarity];
+        ctx.beginPath();
+        ctx.arc(o.x, o.y + bob, 22, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // ── World objects — blurred, semi-transparent ─────
+      ctx.save();
+      ctx.filter       = 'blur(' + CFG.blurPx + 'px)';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font         = CFG.fontSize + 'px sans-serif';
+
+      for (const o of world) {
+        if (dist2(o.x, o.y, snake.x, snake.y) > cullR2) continue;
+        const bob = Math.sin(t * o.bobSpd + o.bob) * 3.5;
+        ctx.globalAlpha = o.alpha * o.scale;
+        if (o.scale < 0.999) {
+          ctx.save();
+          ctx.translate(o.x, o.y + bob);
+          ctx.scale(o.scale, o.scale);
+          ctx.fillText(o.e, 0, 0);
+          ctx.restore();
+        } else {
+          ctx.fillText(o.e, o.x, o.y + bob);
+        }
+      }
+      ctx.restore();
+
+      // ── Snake — only during play / death ─────────────
+      if (phase !== 'start') {
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.filter       = 'none';
+
+        const nSegs   = snake.segs.length;
+        const headBob = Math.sin(t * 4.5) * 2.2;
+
+        // Head glow
+        ctx.globalAlpha = 0.50;
+        ctx.fillStyle   = snake.face === '👺' ? '#facc15' : 'hsl(270, 100%, 72%)';
+        ctx.beginPath();
+        ctx.arc(snake.x, snake.y + headBob, 28, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Body glow
+        for (let i = nSegs - 1; i >= 0; i--) {
+          const s      = snake.segs[i];
+          const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
+          const fade   = 1 - (i / Math.max(1, nSegs)) * 0.55;
+          const hue    = (40 + i * 20) % 360;
+          ctx.globalAlpha = 0.22 * fade;
+          ctx.fillStyle   = 'hsl(' + hue + ', 100%, 65%)';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y + wobble, 18, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Body emojis
+        ctx.shadowBlur = 12;
+        for (let i = nSegs - 1; i >= 0; i--) {
+          const s      = snake.segs[i];
+          const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
+          const frac   = 1 - i / Math.max(1, nSegs);
+          const hue    = (40 + i * 20) % 360;
+          ctx.shadowColor = 'hsl(' + hue + ', 100%, 70%)';
+          ctx.globalAlpha = 0.75 + 0.25 * frac;
+          ctx.font        = Math.round(CFG.bodySize * (0.75 + 0.25 * frac)) + 'px sans-serif';
+          ctx.fillText(s.e, s.x, s.y + wobble);
+        }
+        ctx.shadowBlur = 0;
+
+        // Head emoji
+        const isGoblin = snake.face === '👺';
+        ctx.shadowColor = isGoblin ? 'rgba(250,204,21,0.95)' : 'rgba(255,220,120,0.95)';
+        ctx.shadowBlur  = isGoblin ? 38 : 24;
+        ctx.globalAlpha = 1.0;
+        ctx.font        = CFG.headSize + 'px sans-serif';
+        ctx.fillText(snake.face, snake.x, snake.y + headBob);
+        ctx.shadowBlur  = 0;
+        ctx.shadowColor = 'transparent';
+      }
+
+      ctx.restore(); // end camera transform
+
+      // ── Death vignette ────────────────────────────────
+      if (phase === 'dead') {
+        deathA = Math.min(0.40, deathA + 0.015);
+        ctx.globalAlpha = deathA;
+        ctx.fillStyle = '#dc1414';
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = 1;
+      }
+
+      // ── Virtual joystick ─────────────────────────────
+      if (joystick.active && phase === 'playing') {
+        ctx.save();
+        ctx.globalAlpha = 1;
+
+        ctx.beginPath();
+        ctx.arc(joystick.cx, joystick.cy, CFG.joystickR, 0, Math.PI * 2);
+        ctx.fillStyle   = 'rgba(255, 255, 255, 0.04)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(joystick.cx, joystick.cy);
+        ctx.lineTo(joystick.curX, joystick.curY);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(joystick.curX, joystick.curY, CFG.joystickKnob, 0, Math.PI * 2);
+        ctx.fillStyle   = 'rgba(255, 255, 255, 0.28)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth   = 1.5;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  GAME LOOP
+    // ═══════════════════════════════════════════════════
+
+    let prevTime = 0;
+    function loop(now) {
+      if (prevTime === 0) { prevTime = now; requestAnimationFrame(loop); return; }
+      const dt = Math.min((now - prevTime) / 1000, 0.05);
+      prevTime = now;
+      update(dt);
+      render(now);
+      requestAnimationFrame(loop);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  BUTTON HANDLERS
+    // ═══════════════════════════════════════════════════
+
+    function bind(el, fn) {
+      el.addEventListener('click',    e => { e.preventDefault(); fn(); });
+      el.addEventListener('touchend', e => { e.preventDefault(); fn(); }, { passive: false });
+    }
+
+    bind(btnStart,    () => { if (!restartLock) beginGame(); });
+    bind(btnRestart,  () => { if (!restartLock) beginGame(); });
+    bind(btnPause,    () => pauseGame());
+    bind(btnResume,   () => resumeGame());
+    bind(btnQuit,     () => quitToMenu());
+    bind(btnToMenu,   () => quitToMenu());
+    bind(btnColl,       () => { buildCollectionGrid(); showPanel(panelColl); });
+    bind(btnSett,       () => { headInput.value = savedHead; showPanel(panelSett); setTimeout(() => headInput.focus(), 50); });
+    bind(btnCollBack,   () => showPanel(panelStart));
+    bind(btnSettBack,   () => showPanel(panelStart));
+    bind(btnDetailBack, () => { buildCollectionGrid(); showPanel(panelColl); });
+
+    // ═══════════════════════════════════════════════════
+    //  BOOT
+    // ═══════════════════════════════════════════════════
+
+    loadPersist();
+    startFace.textContent = savedHead;
+    initHeadInput();
+    initIdleSnake();
+    initIdleWorld();
+
+    ALL_PANELS.forEach(p => { p.style.display = 'none'; });
+    panelStart.style.display = '';
+    overlay.classList.add('show');
+
+    requestAnimationFrame(loop);
+
+  }());
+  </script>
+</body>
+</html>
