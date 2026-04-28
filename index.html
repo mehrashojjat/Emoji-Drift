@@ -46,7 +46,30 @@
     }
     #hud.visible { opacity: 1; }
 
-    /* Overlay covers the screen for both start and game-over */
+    /* Pause button */
+    #btn-pause {
+      position: fixed;
+      top: env(safe-area-inset-top, 14px);
+      right: 16px;
+      width: 40px; height: 40px;
+      border: none; border-radius: 12px;
+      background: rgba(0, 0, 0, 0.42);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: rgba(255,255,255,0.85);
+      font-size: 18px;
+      cursor: pointer;
+      z-index: 10;
+      display: none;
+      align-items: center; justify-content: center;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s, opacity 0.1s;
+    }
+    #btn-pause.visible { display: flex; }
+    #btn-pause:active { transform: scale(0.88); }
+
+    /* Overlay */
     #overlay {
       display: none;
       position: fixed;
@@ -60,18 +83,25 @@
     }
     #overlay.show { display: flex; }
 
-    /* Shared panel style */
+    /* Shared panel */
     .panel {
       background: rgba(12, 12, 30, 0.97);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 26px;
-      padding: 40px 32px;
+      padding: 36px 28px;
       text-align: center;
       max-width: 300px;
       width: 88%;
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .panel-wide {
+      max-width: 440px;
+      width: 94%;
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
     }
     @keyframes popIn {
       from { transform: scale(0.6); opacity: 0; }
@@ -80,9 +110,9 @@
 
     .p-icon  { font-size: 58px; line-height: 1; margin-bottom: 10px; }
     .p-title { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
-    .p-sub   { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 28px; letter-spacing: 0.3px; }
+    .p-sub   { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 20px; letter-spacing: 0.3px; }
     .p-stat  { font-size: 60px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
-    .p-label { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 28px; letter-spacing: 0.4px; }
+    .p-label { font-size: 13px; color: rgba(255,255,255,0.42); margin-bottom: 24px; letter-spacing: 0.4px; }
 
     .btn-action {
       font-size: 17px; font-weight: 600;
@@ -95,8 +125,77 @@
       -webkit-tap-highlight-color: transparent;
       transition: transform 0.1s, opacity 0.1s;
       letter-spacing: 0.3px;
+      margin-bottom: 10px;
     }
+    .btn-action:last-child { margin-bottom: 0; }
     .btn-action:active { transform: scale(0.93); opacity: 0.82; }
+
+    .btn-ghost {
+      font-size: 15px; font-weight: 500;
+      padding: 12px 0;
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.78);
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s, opacity 0.1s;
+      letter-spacing: 0.3px;
+      margin-bottom: 10px;
+    }
+    .btn-ghost:last-child { margin-bottom: 0; }
+    .btn-ghost:active { transform: scale(0.93); opacity: 0.72; }
+
+    /* Emoji grids */
+    .emoji-scroll {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 16px;
+      min-height: 80px;
+    }
+    .emoji-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      padding: 4px 2px;
+    }
+    .emoji-cell {
+      position: relative;
+      width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+      border: 2px solid rgba(255,255,255,0.08);
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.1s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .emoji-cell:active { transform: scale(0.85); }
+    .emoji-cell.selected {
+      border-color: #7c3aed;
+      background: rgba(124,58,237,0.22);
+    }
+
+    /* Rarity dot indicator */
+    .rarity-dot {
+      position: absolute;
+      bottom: 3px; right: 3px;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .r-common    { display: none; }
+    .r-uncommon  { background: #4ade80; }
+    .r-rare      { background: #60a5fa; }
+    .r-epic      { background: #c084fc; }
+    .r-legendary { background: #facc15; box-shadow: 0 0 5px #facc15; }
 
     #hint {
       position: fixed;
@@ -116,24 +215,60 @@
 </head>
 <body>
   <canvas id="canvas"></canvas>
-  <div id="hud">🐍&nbsp;&nbsp;<span id="hud-len">3</span></div>
+  <div id="hud"><span id="hud-head">🐍</span>&nbsp;&nbsp;<span id="hud-len">1</span></div>
   <div id="hint">✦ Touch and drag to steer ✦</div>
+  <button id="btn-pause">⏸</button>
 
-  <!-- Overlay: start panel shown first, game-over panel hidden -->
   <div id="overlay" class="show">
+
+    <!-- Start panel -->
     <div id="panel-start" class="panel">
-      <div class="p-icon">🐍</div>
+      <div class="p-icon" id="start-face">🐍</div>
       <div class="p-title">Emoji Drift</div>
       <div class="p-sub">Collect emojis · Grow your snake</div>
-      <button id="btn-start" class="btn-action">Start</button>
+      <button id="btn-start" class="btn-action">▶ Start</button>
+      <button id="btn-collection" class="btn-ghost">🎒 My Collection</button>
+      <button id="btn-settings" class="btn-ghost">⚙️ Settings</button>
     </div>
+
+    <!-- Game over panel -->
     <div id="panel-over" class="panel" style="display:none">
       <div class="p-icon" id="go-icon">💥</div>
       <div class="p-title">Game Over</div>
-      <div class="p-stat" id="go-stat">3</div>
+      <div class="p-stat" id="go-stat">0</div>
       <div class="p-label">unique emoji types</div>
-      <button id="btn-restart" class="btn-action">Play Again</button>
+      <button id="btn-restart" class="btn-action">▶ Play Again</button>
+      <button id="btn-to-menu" class="btn-ghost">🏠 Main Menu</button>
     </div>
+
+    <!-- Pause panel -->
+    <div id="panel-pause" class="panel" style="display:none">
+      <div class="p-icon">⏸</div>
+      <div class="p-title">Paused</div>
+      <button id="btn-resume" class="btn-action">▶ Resume</button>
+      <button id="btn-quit" class="btn-ghost">🏠 Quit to Menu</button>
+    </div>
+
+    <!-- Collection panel -->
+    <div id="panel-collection" class="panel panel-wide" style="display:none">
+      <div class="p-title">🎒 My Collection</div>
+      <div class="p-sub" id="coll-count">0 emojis collected</div>
+      <div class="emoji-scroll">
+        <div class="emoji-grid" id="coll-grid"></div>
+      </div>
+      <button id="btn-coll-back" class="btn-ghost">← Back</button>
+    </div>
+
+    <!-- Settings panel -->
+    <div id="panel-settings" class="panel panel-wide" style="display:none">
+      <div class="p-title">⚙️ Settings</div>
+      <div class="p-sub">Tap an emoji to set your snake's head</div>
+      <div class="emoji-scroll">
+        <div class="emoji-grid" id="head-grid"></div>
+      </div>
+      <button id="btn-settings-back" class="btn-ghost">← Back</button>
+    </div>
+
   </div>
 
   <script>
@@ -144,7 +279,7 @@
     //  EMOJI DATABASE
     // ═══════════════════════════════════════════════════
 
-    /** Expressive / face-like emojis used for the snake head */
+    /** Expressive / face-like emojis — also used as world objects (uncommon rarity) */
     const FACE_POOL = [
       '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘',
       '😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🧐','😎','🥳','🥸','😏',
@@ -197,116 +332,198 @@
       ],
     };
 
-    const POOL_CATS    = Object.keys(POOLS);
-    const POOL_WEIGHTS = [0.28, 0.25, 0.22, 0.15, 0.10];
-    const POOL_CDF = POOL_WEIGHTS.reduce((acc, w, i) => {
-      acc.push((acc[i - 1] || 0) + w); return acc;
-    }, []);
+    // ── Rarity system ──────────────────────────────────
 
-    const UNI_RANGES = [
-      [0x1F300, 0x1F5FF],
-      [0x1F680, 0x1F6FF],
-      [0x1F900, 0x1F9FF],
-      [0x1FA70, 0x1FAFF],
-    ];
+    /** Per-tier spawn weight.  e.g. one legendary spawn ≈ 1000× rarer than common. */
+    const RARITY_WEIGHTS = {
+      common:    1.000,
+      uncommon:  0.200,
+      rare:      0.045,
+      epic:      0.008,
+      legendary: 0.001,
+    };
 
-    function randUnicode() {
-      const rng = UNI_RANGES[Math.floor(Math.random() * UNI_RANGES.length)];
-      return String.fromCodePoint(rng[0] + Math.floor(Math.random() * (rng[1] - rng[0])));
+    /** HEX glow / badge colour per tier */
+    const RARITY_COLORS = {
+      common:    '#9ca3af',
+      uncommon:  '#4ade80',
+      rare:      '#60a5fa',
+      epic:      '#c084fc',
+      legendary: '#facc15',
+    };
+
+    /** Specific emojis that are elevated above their pool default */
+    const RARITY_OVERRIDES = {
+      // legendary
+      '👺': 'legendary',
+      // epic
+      '💀': 'epic', '☠️': 'epic', '👿': 'epic', '😈': 'epic',
+      '🤖': 'epic', '👾': 'epic', '👽': 'epic', '🤡': 'epic',
+      '💎': 'epic', '👑': 'epic', '🏆': 'epic', '🔮': 'epic',
+      '☄️': 'epic', '🪄': 'epic', '🌌': 'epic',
+      // rare
+      '👻': 'rare', '💩': 'rare', '🤯': 'rare', '😵': 'rare', '😱': 'rare',
+      '🦄': 'rare', '🦋': 'rare', '🕷️': 'rare', '🦂': 'rare',
+      '🦖': 'rare', '🦕': 'rare', '🦈': 'rare', '🐊': 'rare',
+      '🐅': 'rare', '🐆': 'rare', '🎭': 'rare', '🎨': 'rare',
+      '🌈': 'rare', '🔥': 'rare', '⭐': 'rare', '🌟': 'rare',
+      '✨': 'rare', '💫': 'rare', '⚡': 'rare', '❤️': 'rare',
+      '💠': 'rare', '🎆': 'rare', '🎇': 'rare', '🧿': 'rare',
+    };
+
+    /** Set for O(1) face lookup */
+    const FACE_SET = new Set(FACE_POOL);
+
+    function getRarity(e) {
+      if (RARITY_OVERRIDES[e]) return RARITY_OVERRIDES[e];
+      if (FACE_SET.has(e))     return 'uncommon';
+      return 'common';
     }
 
-    const _recentFaces = [];
-    function pickFace() {
-      let e, tries = 0;
-      do {
-        e = FACE_POOL[Math.floor(Math.random() * FACE_POOL.length)];
-        tries++;
-      } while (_recentFaces.includes(e) && tries < 15);
-      _recentFaces.push(e);
-      if (_recentFaces.length > 8) _recentFaces.shift();
-      return e;
-    }
+    /** Flat weighted pool built once at startup — all pool + face emojis */
+    const WORLD_POOL_FLAT = [];
+    let   WORLD_POOL_TOTAL = 0;
+    (function buildWorldPool() {
+      const seen = new Set();
+      const add = (e) => {
+        if (seen.has(e)) return;
+        seen.add(e);
+        const rarity = getRarity(e);
+        const w      = RARITY_WEIGHTS[rarity];
+        WORLD_POOL_FLAT.push({ e, rarity, w });
+        WORLD_POOL_TOTAL += w;
+      };
+      for (const cat of Object.values(POOLS)) for (const e of cat) add(e);
+      for (const e of FACE_POOL)                                    add(e);
+    }());
 
-    function pickWorld() {
-      if (Math.random() < 0.12) return randUnicode();
-      const r = Math.random();
-      for (let i = 0; i < POOL_CDF.length; i++) {
-        if (r <= POOL_CDF[i]) {
-          const pool = POOLS[POOL_CATS[i]];
-          return pool[Math.floor(Math.random() * pool.length)];
-        }
+    function pickWorldItem() {
+      let r = Math.random() * WORLD_POOL_TOTAL;
+      for (const item of WORLD_POOL_FLAT) {
+        r -= item.w;
+        if (r <= 0) return item;
       }
-      const pool = POOLS.food;
-      return pool[Math.floor(Math.random() * pool.length)];
+      return WORLD_POOL_FLAT[0];
     }
+    function pickWorld() { return pickWorldItem().e; }
 
     // ═══════════════════════════════════════════════════
     //  CANVAS SETUP — devicePixelRatio aware
     // ═══════════════════════════════════════════════════
 
-    const canvas  = document.getElementById('canvas');
-    const ctx     = canvas.getContext('2d');
-    const hudEl   = document.getElementById('hud');
-    const hudLen  = document.getElementById('hud-len');
-    const goIcon  = document.getElementById('go-icon');
-    const goStat  = document.getElementById('go-stat');
-    const overlay = document.getElementById('overlay');
-    const panelStart = document.getElementById('panel-start');
-    const panelOver  = document.getElementById('panel-over');
-    const btnStart   = document.getElementById('btn-start');
-    const btnPlay    = document.getElementById('btn-restart');
-    const hintEl     = document.getElementById('hint');
+    const canvas = document.getElementById('canvas');
+    const ctx    = canvas.getContext('2d');
 
-    // Logical (CSS) dimensions — all game coordinates use these
     let W = 0, H = 0;
-
     function resize() {
       W = window.innerWidth;
       H = window.innerHeight;
-      // Recalculate DPR on each resize to handle moving between displays
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
-      // Physical pixels = logical * DPR for sharp rendering on Retina
       canvas.width  = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
       canvas.style.width  = W + 'px';
       canvas.style.height = H + 'px';
-      // Reset transform then apply DPR scale (prevents cumulative scaling on repeated resize)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resize();
     window.addEventListener('resize', resize);
 
     // ═══════════════════════════════════════════════════
+    //  DOM REFS
+    // ═══════════════════════════════════════════════════
+
+    const hudEl       = document.getElementById('hud');
+    const hudHead     = document.getElementById('hud-head');
+    const hudLen      = document.getElementById('hud-len');
+    const goIcon      = document.getElementById('go-icon');
+    const goStat      = document.getElementById('go-stat');
+    const overlay     = document.getElementById('overlay');
+    const panelStart  = document.getElementById('panel-start');
+    const panelOver   = document.getElementById('panel-over');
+    const panelPause  = document.getElementById('panel-pause');
+    const panelColl   = document.getElementById('panel-collection');
+    const panelSett   = document.getElementById('panel-settings');
+    const startFace   = document.getElementById('start-face');
+    const btnStart    = document.getElementById('btn-start');
+    const btnRestart  = document.getElementById('btn-restart');
+    const btnPause    = document.getElementById('btn-pause');
+    const btnResume   = document.getElementById('btn-resume');
+    const btnQuit     = document.getElementById('btn-quit');
+    const btnToMenu   = document.getElementById('btn-to-menu');
+    const btnColl     = document.getElementById('btn-collection');
+    const btnSett     = document.getElementById('btn-settings');
+    const btnCollBack = document.getElementById('btn-coll-back');
+    const btnSettBack = document.getElementById('btn-settings-back');
+    const collCount   = document.getElementById('coll-count');
+    const collGrid    = document.getElementById('coll-grid');
+    const headGrid    = document.getElementById('head-grid');
+    const hintEl      = document.getElementById('hint');
+
+    const ALL_PANELS  = [panelStart, panelOver, panelPause, panelColl, panelSett];
+
+    // ═══════════════════════════════════════════════════
     //  CONFIGURATION
     // ═══════════════════════════════════════════════════
 
     const CFG = {
-      fontSize    : 30,     // world emoji font size (CSS px)
-      headSize    : 38,     // head emoji font size (CSS px)
-      bodySize    : 22,     // body emoji font size (CSS px), tapers toward tail
-      segSpacing  : 30,     // distance between segment centres (CSS px)
-      spawnR      : 620,    // spawn objects within this radius of head
-      despawnR    : 840,    // remove objects beyond this radius
+      fontSize    : 30,
+      headSize    : 38,
+      bodySize    : 22,
+      segSpacing  : 30,
+      spawnR      : 620,
+      despawnR    : 840,
       minObjs     : 28,
       maxObjs     : 65,
-      collectDist : 28,     // collection trigger distance (CSS px)
-      collideDist : 12,     // self-collision trigger distance (CSS px)
-      skipSegs    : 7,      // ignore first N body segs for self-collision
-      minSpeed    : 60,     // comfortable minimum movement speed px/s
-      baseSpeed   : 300,    // top speed at full joystick deflection
-      turnSpeed   : 6.0,    // direction lerp multiplier (higher = more responsive)
-      driftFactor : 0.12,   // speed factor when joystick is inactive (gentle drift)
-      joystickR   : 80,     // virtual joystick max radius (CSS px)
-      joystickKnob: 22,     // inner knob radius (CSS px)
-      blurPx      : 2,      // blur for uncollected world objects (CSS px)
-      blurAlpha   : 0.62,   // max opacity for uncollected objects
+      collectDist : 28,
+      collideDist : 12,
+      skipSegs    : 7,
+      minSpeed    : 60,
+      baseSpeed   : 300,
+      turnSpeed   : 6.0,
+      driftFactor : 0.12,
+      joystickR   : 80,
+      joystickKnob: 22,
+      blurPx      : 2,
+      blurAlpha   : 0.62,
     };
+
+    // ═══════════════════════════════════════════════════
+    //  PERSISTENCE  (localStorage)
+    // ═══════════════════════════════════════════════════
+
+    const LS_HEAD = 'emojiDrift_head';
+    const LS_COLL = 'emojiDrift_collection';
+
+    let savedHead;        // chosen head emoji (persisted)
+    let globalCollection; // Set<string> of all emojis ever collected
+
+    function loadPersist() {
+      try {
+        const h = localStorage.getItem(LS_HEAD);
+        savedHead = (h && FACE_SET.has(h)) ? h : null;
+      } catch { savedHead = null; }
+      if (!savedHead) {
+        savedHead = FACE_POOL[Math.floor(Math.random() * FACE_POOL.length)];
+        try { localStorage.setItem(LS_HEAD, savedHead); } catch {}
+      }
+      try {
+        const raw = localStorage.getItem(LS_COLL);
+        globalCollection = raw ? new Set(JSON.parse(raw)) : new Set();
+      } catch { globalCollection = new Set(); }
+    }
+
+    function savePersist() {
+      try {
+        localStorage.setItem(LS_HEAD, savedHead);
+        localStorage.setItem(LS_COLL, JSON.stringify([...globalCollection]));
+      } catch {}
+    }
 
     // ═══════════════════════════════════════════════════
     //  GAME STATE
     // ═══════════════════════════════════════════════════
 
-    // phase: 'start' | 'playing' | 'dead'
+    // phase: 'start' | 'playing' | 'paused' | 'dead'
     let phase      = 'start';
     let snake      = null;
     let trail      = [];
@@ -314,40 +531,121 @@
     let deathA     = 0;
     let spawnTick  = 0;
     let startTime  = 0;
+    let pausedMs   = 0;   // total ms spent paused this game
+    let pauseStart = 0;   // when the current pause began
     let restartLock = false;
-    let collectedTypes = new Set(); // unique emoji types gathered this run
+    let collectedTypes = new Set(); // unique types this session
 
     // ── Virtual joystick state ───────────────────────
     const joystick = {
       active : false,
-      cx: 0, cy: 0,       // anchor point (CSS px)
-      curX: 0, curY: 0,   // current knob position (CSS px)
-      dx: 0, dy: 0,       // clamped offset from anchor
-      factor: 0,          // speed factor 0..1
+      cx: 0, cy: 0,
+      curX: 0, curY: 0,
+      dx: 0, dy: 0,
+      factor: 0,
     };
 
-    // ── Idle / start-screen snake placeholder ────────
+    // ═══════════════════════════════════════════════════
+    //  PANEL HELPERS
+    // ═══════════════════════════════════════════════════
+
+    function showPanel(panel) {
+      ALL_PANELS.forEach(p => { p.style.display = (p === panel) ? '' : 'none'; });
+      overlay.classList.add('show');
+    }
+    function hideOverlay() { overlay.classList.remove('show'); }
+
+    // ═══════════════════════════════════════════════════
+    //  SETTINGS UI — head picker grid
+    // ═══════════════════════════════════════════════════
+
+    function buildHeadGrid() {
+      headGrid.innerHTML = '';
+      for (const e of FACE_POOL) {
+        const cell = document.createElement('div');
+        cell.className = 'emoji-cell' + (e === savedHead ? ' selected' : '');
+        cell.textContent = e;
+        const rarity = getRarity(e);
+        const dot = document.createElement('span');
+        dot.className = 'rarity-dot r-' + rarity;
+        cell.appendChild(dot);
+
+        const pick = () => {
+          savedHead = e;
+          savePersist();
+          startFace.textContent = e;
+          headGrid.querySelectorAll('.emoji-cell').forEach(c => c.classList.remove('selected'));
+          cell.classList.add('selected');
+        };
+        cell.addEventListener('click', pick);
+        cell.addEventListener('touchend', ev => { ev.preventDefault(); pick(); }, { passive: false });
+        headGrid.appendChild(cell);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  COLLECTION UI
+    // ═══════════════════════════════════════════════════
+
+    function buildCollectionGrid() {
+      collGrid.innerHTML = '';
+      const RARITY_ORDER = { legendary: 0, epic: 1, rare: 2, uncommon: 3, common: 4 };
+      const sorted = [...globalCollection].sort((a, b) =>
+        (RARITY_ORDER[getRarity(a)] || 4) - (RARITY_ORDER[getRarity(b)] || 4)
+      );
+      const n = sorted.length;
+      collCount.textContent = n === 0
+        ? 'No emojis collected yet'
+        : n + ' unique emoji' + (n !== 1 ? 's' : '') + ' collected';
+
+      if (n === 0) {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'color:rgba(255,255,255,0.3);font-size:14px;padding:24px 0';
+        msg.textContent = 'Start playing to fill your collection!';
+        collGrid.appendChild(msg);
+        return;
+      }
+      for (const e of sorted) {
+        const rarity = getRarity(e);
+        const cell   = document.createElement('div');
+        cell.className   = 'emoji-cell';
+        cell.textContent = e;
+        if (rarity !== 'common') {
+          cell.style.borderColor = RARITY_COLORS[rarity] + '66';
+        }
+        const dot = document.createElement('span');
+        dot.className = 'rarity-dot r-' + rarity;
+        cell.appendChild(dot);
+        collGrid.appendChild(cell);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  IDLE SNAKE & WORLD (start screen background)
+    // ═══════════════════════════════════════════════════
+
     function initIdleSnake() {
       snake = {
         x: 0, y: 0,
         vx: 1, vy: 0,
         tx: 1, ty: 0,
-        face: pickFace(),
+        face: savedHead,
         segs: [],
-        len: 3,
+        len: 1,
       };
     }
 
-    // ── Seed world objects for the idle background ───
     function initIdleWorld() {
       world = [];
       for (let i = 0; i < 42; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const r   = 55 + Math.random() * 500;
+        const ang  = Math.random() * Math.PI * 2;
+        const r    = 55 + Math.random() * 500;
+        const item = pickWorldItem();
         world.push({
           x     : Math.cos(ang) * r,
           y     : Math.sin(ang) * r,
-          e     : pickWorld(),
+          e     : item.e,
+          rarity: item.rarity,
           alpha : Math.random() * 0.4 + 0.08,
           scale : Math.random() * 0.6 + 0.3,
           bob   : Math.random() * Math.PI * 2,
@@ -356,7 +654,10 @@
       }
     }
 
-    // ── Begin / restart actual gameplay ─────────────
+    // ═══════════════════════════════════════════════════
+    //  BEGIN / RESTART GAME
+    // ═══════════════════════════════════════════════════
+
     function beginGame() {
       restartLock = true;
       setTimeout(() => { restartLock = false; }, 600);
@@ -364,39 +665,64 @@
       phase     = 'playing';
       deathA    = 0;
       spawnTick = 0;
+      pausedMs  = 0;
       collectedTypes = new Set();
 
-      // Hide overlay
-      overlay.classList.remove('show');
-
-      // Show HUD + hint
+      hideOverlay();
       hudEl.classList.add('visible');
       hintEl.classList.add('visible');
+      btnPause.classList.add('visible');
 
-      // Pre-fill trail with dense 1-px-spaced history so segments track
-      // smoothly from the very first frame (no jump to mismatched indices)
+      // Dense 1-px pre-fill so body segments are accurate from frame 1
       trail = [];
-      for (let i = 0; i < 3000; i++) {
-        trail.push({ x: -i, y: 0 });
-      }
+      for (let i = 0; i < 3000; i++) trail.push({ x: -i, y: 0 });
 
       snake = {
         x: 0, y: 0,
         vx: 1, vy: 0,
         tx: 1, ty: 0,
-        face: pickFace(),
-        segs: [],
-        len: 3,
+        face: savedHead,  // fixed for this game; only 👺 can override it
+        segs: [],         // starts with NO body — head only
+        len : 1,
       };
 
-      for (let i = 0; i < 2; i++) {
-        snake.segs.push({ x: -(i + 1) * CFG.segSpacing, y: 0, e: pickWorld() });
-      }
-
+      hudHead.textContent = snake.face;
+      hudLen.textContent  = snake.len;
       world = [];
       startTime = performance.now();
-      hudLen.textContent = snake.len;
       spawnWorld(true);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  PAUSE / RESUME / QUIT
+    // ═══════════════════════════════════════════════════
+
+    function pauseGame() {
+      if (phase !== 'playing') return;
+      phase      = 'paused';
+      pauseStart = performance.now();
+      joystickEnd();
+      showPanel(panelPause);
+    }
+
+    function resumeGame() {
+      if (phase !== 'paused') return;
+      pausedMs += performance.now() - pauseStart;
+      phase = 'playing';
+      hideOverlay();
+    }
+
+    function quitToMenu() {
+      if (phase === 'paused') pausedMs += performance.now() - pauseStart;
+      phase = 'start';
+      joystickEnd();
+      hudEl.classList.remove('visible');
+      btnPause.classList.remove('visible');
+      hintEl.classList.remove('visible');
+      initIdleSnake();
+      initIdleWorld();
+      startFace.textContent = savedHead;
+      showPanel(panelStart);
     }
 
     // ═══════════════════════════════════════════════════
@@ -404,29 +730,25 @@
     // ═══════════════════════════════════════════════════
 
     function spawnWorld(initial) {
-      const target = Math.min(
-        CFG.maxObjs,
-        CFG.minObjs + Math.floor(snake.len * 0.4),
-      );
+      const target = Math.min(CFG.maxObjs, CFG.minObjs + Math.floor(snake.len * 0.4));
       let tries = 0;
       while (world.length < target && tries++ < 350) {
         const ang = Math.random() * Math.PI * 2;
         const r   = (0.25 + Math.random() * 0.75) * CFG.spawnR;
         const wx  = snake.x + Math.cos(ang) * r;
         const wy  = snake.y + Math.sin(ang) * r;
-
         if (dist2(wx, wy, snake.x, snake.y) < 70 * 70) continue;
-
         let ok = true;
         for (const o of world) {
           if (dist2(wx, wy, o.x, o.y) < 30 * 30) { ok = false; break; }
         }
         if (!ok) continue;
-
+        const item = pickWorldItem();
         world.push({
           x     : wx,
           y     : wy,
-          e     : pickWorld(),
+          e     : item.e,
+          rarity: item.rarity,
           alpha : initial ? Math.random() * 0.5 + 0.1 : 0,
           scale : initial ? Math.random() * 0.7 + 0.3 : 0.01,
           bob   : Math.random() * Math.PI * 2,
@@ -438,9 +760,7 @@
     function despawnWorld() {
       const r2 = CFG.despawnR * CFG.despawnR;
       for (let i = world.length - 1; i >= 0; i--) {
-        if (dist2(world[i].x, world[i].y, snake.x, snake.y) > r2) {
-          world.splice(i, 1);
-        }
+        if (dist2(world[i].x, world[i].y, snake.x, snake.y) > r2) world.splice(i, 1);
       }
     }
 
@@ -459,39 +779,25 @@
 
     function joystickStart(cx, cy) {
       joystick.active = true;
-      joystick.cx   = cx;
-      joystick.cy   = cy;
-      joystick.curX = cx;
-      joystick.curY = cy;
-      joystick.dx   = 0;
-      joystick.dy   = 0;
+      joystick.cx = cx; joystick.cy = cy;
+      joystick.curX = cx; joystick.curY = cy;
+      joystick.dx = 0; joystick.dy = 0;
       joystick.factor = 0;
     }
 
     function joystickMove(x, y) {
       if (!joystick.active) return;
-      let dx   = x - joystick.cx;
-      let dy   = y - joystick.cy;
-      const d  = Math.sqrt(dx * dx + dy * dy);
-
-      // Speed factor: linearly scales from 0 to 1 over joystick radius
+      let dx  = x - joystick.cx;
+      let dy  = y - joystick.cy;
+      const d = Math.sqrt(dx * dx + dy * dy);
       joystick.factor = Math.min(d / CFG.joystickR, 1);
-
-      // Clamp knob position to joystick radius
-      if (d > CFG.joystickR) {
-        dx = (dx / d) * CFG.joystickR;
-        dy = (dy / d) * CFG.joystickR;
-      }
-      joystick.dx   = dx;
-      joystick.dy   = dy;
+      if (d > CFG.joystickR) { dx = (dx / d) * CFG.joystickR; dy = (dy / d) * CFG.joystickR; }
+      joystick.dx   = dx; joystick.dy = dy;
       joystick.curX = joystick.cx + dx;
       joystick.curY = joystick.cy + dy;
-
-      // Update target direction from the raw (unclamped) finger vector
       if (d > 8 && phase === 'playing') {
         snake.tx = (x - joystick.cx) / d;
         snake.ty = (y - joystick.cy) / d;
-        // Dismiss hint after first intentional input
         hintEl.classList.remove('visible');
       }
     }
@@ -532,14 +838,11 @@
     canvas.addEventListener('mouseleave', () => joystickEnd());
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Block document-level scroll / zoom
+    // Block document scroll / zoom but allow panel touches
     document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
     document.addEventListener('touchstart', e => {
-      if (e.target !== canvas &&
-          e.target !== btnStart &&
-          e.target !== btnPlay) {
-        e.preventDefault();
-      }
+      if (e.target.closest('.panel') || e.target === btnPause) return;
+      e.preventDefault();
     }, { passive: false });
 
     // ═══════════════════════════════════════════════════
@@ -547,27 +850,26 @@
     // ═══════════════════════════════════════════════════
 
     function update(dt) {
-      // World objects animate in all phases (idle background + gameplay)
+      // World objects animate in all phases
       for (const o of world) {
         if (o.alpha < CFG.blurAlpha) o.alpha = Math.min(CFG.blurAlpha, o.alpha + dt * 1.6);
         if (o.scale < 1)             o.scale = Math.min(1,             o.scale + dt * 2.8);
       }
 
-      // Snake logic only while playing
       if (phase !== 'playing') return;
 
-      // ── Direction interpolation (lerp toward target) ─
+      // ── Direction interpolation ───────────────────────
       snake.vx += (snake.tx - snake.vx) * CFG.turnSpeed * dt;
       snake.vy += (snake.ty - snake.vy) * CFG.turnSpeed * dt;
       const vLen = Math.sqrt(snake.vx * snake.vx + snake.vy * snake.vy);
       if (vLen > 0.0001) { snake.vx /= vLen; snake.vy /= vLen; }
 
-      // ── Speed: joystick distance → scale between min and dynamic max ──
-      const elapsed     = (performance.now() - startTime) / 1000;
-      const dynamicMax  = CFG.baseSpeed + (snake.len - 3) * 1.8 + elapsed * 0.5;
-      // When joystick inactive, drift at driftFactor of dynamic range above minSpeed
-      const factor      = joystick.active ? joystick.factor : CFG.driftFactor;
-      const speed       = CFG.minSpeed + factor * (dynamicMax - CFG.minSpeed);
+      // ── Speed ─────────────────────────────────────────
+      // Subtract paused time from elapsed so pausing doesn't inflate max speed
+      const elapsed    = (performance.now() - startTime - pausedMs) / 1000;
+      const dynamicMax = CFG.baseSpeed + (snake.len - 1) * 1.8 + elapsed * 0.5;
+      const factor     = joystick.active ? joystick.factor : CFG.driftFactor;
+      const speed      = CFG.minSpeed + factor * (dynamicMax - CFG.minSpeed);
 
       // ── Move head ────────────────────────────────────
       snake.x += snake.vx * speed * dt;
@@ -575,14 +877,10 @@
 
       // ── Record trail point every frame ───────────────
       trail.unshift({ x: snake.x, y: snake.y });
-      // Keep enough trail to cover the full snake at the current speed
       const maxTrail = Math.max(3000, (snake.segs.length + 20) * CFG.segSpacing);
       if (trail.length > maxTrail) trail.length = maxTrail;
 
       // ── Distance-interpolated body placement ─────────
-      // Build cumulative-distance array along trail just as far as needed.
-      // This eliminates the discrete "stair-step" jump from the old index approach
-      // and keeps all body segments smoothly positioned at all speeds.
       const neededDist = (snake.segs.length + 1) * CFG.segSpacing;
       const cumul = [0];
       let ci = 0;
@@ -593,7 +891,6 @@
         ci++;
       }
       const cLast = cumul.length - 1;
-
       for (let i = 0; i < snake.segs.length; i++) {
         const d = (i + 1) * CFG.segSpacing;
         if (d >= cumul[cLast]) {
@@ -601,7 +898,6 @@
           snake.segs[i].y = trail[cLast].y;
           continue;
         }
-        // Binary search for the bracketing trail indices
         let a = 0, b = cLast;
         while (b - a > 1) {
           const m = (a + b) >> 1;
@@ -617,9 +913,16 @@
       for (let i = world.length - 1; i >= 0; i--) {
         const o = world[i];
         if (dist2(snake.x, snake.y, o.x, o.y) < cd2) {
+          // Add to both session set and persistent global collection
           collectedTypes.add(o.e);
-          snake.face = pickFace();
-          snake.segs.push({ x: o.x, y: o.y, e: o.e });
+          globalCollection.add(o.e);
+          savePersist();
+          // 👺 legendary power: temporarily become the goblin
+          if (o.e === '👺') {
+            snake.face = '👺';
+            hudHead.textContent = '👺';
+          }
+          snake.segs.push({ x: o.x, y: o.y, e: o.e, rarity: o.rarity });
           snake.len++;
           world.splice(i, 1);
           hudLen.textContent = snake.len;
@@ -650,15 +953,11 @@
     function triggerDeath() {
       phase = 'dead';
       joystickEnd();
-      goIcon.textContent = pickFace();
+      btnPause.classList.remove('visible');
+      goIcon.textContent = FACE_POOL[Math.floor(Math.random() * FACE_POOL.length)];
       goStat.textContent = collectedTypes.size;
-      // Hide HUD during death animation
       hudEl.classList.remove('visible');
-      setTimeout(() => {
-        panelStart.style.display = 'none';
-        panelOver.style.display  = '';
-        overlay.classList.add('show');
-      }, 850);
+      setTimeout(() => { showPanel(panelOver); }, 850);
     }
 
     // ═══════════════════════════════════════════════════
@@ -666,15 +965,11 @@
     // ═══════════════════════════════════════════════════
 
     function render(now) {
-      const t = now * 0.001;  // seconds
+      const t = now * 0.001;
 
-      // Camera follows snake in all phases
-      // (during 'start', snake is at origin → camera centred)
-      const cx = W * 0.5 - snake.x;
-      const cy = H * 0.5 - snake.y;
-
-      // Viewport culling radius
-      const cullR  = Math.sqrt(W * W + H * H) * 0.5 + 60;
+      const cx    = W * 0.5 - snake.x;
+      const cy    = H * 0.5 - snake.y;
+      const cullR = Math.sqrt(W * W + H * H) * 0.5 + 60;
       const cullR2 = cullR * cullR;
 
       // ── Background ────────────────────────────────────
@@ -684,19 +979,35 @@
       ctx.save();
       ctx.translate(cx, cy);
 
+      // ── Rare+ aura circles under world objects ────────
+      ctx.save();
+      ctx.filter = 'none';
+      for (const o of world) {
+        if (o.rarity === 'common' || o.rarity === 'uncommon') continue;
+        if (dist2(o.x, o.y, snake.x, snake.y) > cullR2) continue;
+        const bob   = Math.sin(t * o.bobSpd + o.bob) * 3.5;
+        const pulse = o.rarity === 'legendary'
+          ? 0.45 + 0.45 * Math.abs(Math.sin(t * 3.5))
+          : 0.28;
+        ctx.globalAlpha = o.alpha * pulse;
+        ctx.fillStyle   = RARITY_COLORS[o.rarity];
+        ctx.beginPath();
+        ctx.arc(o.x, o.y + bob, 22, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
       // ── World objects — blurred, semi-transparent ─────
       ctx.save();
-      ctx.filter       = `blur(${CFG.blurPx}px)`;
+      ctx.filter       = 'blur(' + CFG.blurPx + 'px)';
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font         = `${CFG.fontSize}px sans-serif`;
+      ctx.font         = CFG.fontSize + 'px sans-serif';
 
       for (const o of world) {
         if (dist2(o.x, o.y, snake.x, snake.y) > cullR2) continue;
-
         const bob = Math.sin(t * o.bobSpd + o.bob) * 3.5;
         ctx.globalAlpha = o.alpha * o.scale;
-
         if (o.scale < 0.999) {
           ctx.save();
           ctx.translate(o.x, o.y + bob);
@@ -707,57 +1018,57 @@
           ctx.fillText(o.e, o.x, o.y + bob);
         }
       }
-      ctx.restore(); // resets filter
+      ctx.restore();
 
       // ── Snake — only during play / death ─────────────
       if (phase !== 'start') {
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
-        ctx.filter       = 'none'; // ensure no residual blur from world objects
+        ctx.filter       = 'none';
 
         const nSegs   = snake.segs.length;
         const headBob = Math.sin(t * 4.5) * 2.2;
 
-        // ── Glow circles (drawn under emojis) ────────────
-        // Head glow – bright purple halo
+        // Head glow
         ctx.globalAlpha = 0.50;
-        ctx.fillStyle   = 'hsl(270, 100%, 72%)';
+        ctx.fillStyle   = snake.face === '👺' ? '#facc15' : 'hsl(270, 100%, 72%)';
         ctx.beginPath();
         ctx.arc(snake.x, snake.y + headBob, 28, 0, Math.PI * 2);
         ctx.fill();
 
-        // Body glow – cycling hue, fades toward tail
+        // Body glow
         for (let i = nSegs - 1; i >= 0; i--) {
           const s      = snake.segs[i];
           const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
           const fade   = 1 - (i / Math.max(1, nSegs)) * 0.55;
           const hue    = (40 + i * 20) % 360;
           ctx.globalAlpha = 0.22 * fade;
-          ctx.fillStyle   = `hsl(${hue}, 100%, 65%)`;
+          ctx.fillStyle   = 'hsl(' + hue + ', 100%, 65%)';
           ctx.beginPath();
           ctx.arc(s.x, s.y + wobble, 18, 0, Math.PI * 2);
           ctx.fill();
         }
 
-        // ── Body emojis (tail → neck) ─────────────────────
+        // Body emojis
         ctx.shadowBlur = 12;
         for (let i = nSegs - 1; i >= 0; i--) {
           const s      = snake.segs[i];
           const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
-          const frac   = 1 - i / Math.max(1, nSegs); // 0 at tail, 1 at neck
+          const frac   = 1 - i / Math.max(1, nSegs);
           const hue    = (40 + i * 20) % 360;
-          ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
+          ctx.shadowColor = 'hsl(' + hue + ', 100%, 70%)';
           ctx.globalAlpha = 0.75 + 0.25 * frac;
-          ctx.font        = `${Math.round(CFG.bodySize * (0.75 + 0.25 * frac))}px sans-serif`;
+          ctx.font        = Math.round(CFG.bodySize * (0.75 + 0.25 * frac)) + 'px sans-serif';
           ctx.fillText(s.e, s.x, s.y + wobble);
         }
         ctx.shadowBlur = 0;
 
-        // ── Head emoji ────────────────────────────────────
-        ctx.shadowColor = 'rgba(255, 220, 120, 0.95)';
-        ctx.shadowBlur  = 24;
+        // Head emoji
+        const isGoblin = snake.face === '👺';
+        ctx.shadowColor = isGoblin ? 'rgba(250,204,21,0.95)' : 'rgba(255,220,120,0.95)';
+        ctx.shadowBlur  = isGoblin ? 38 : 24;
         ctx.globalAlpha = 1.0;
-        ctx.font        = `${CFG.headSize}px sans-serif`;
+        ctx.font        = CFG.headSize + 'px sans-serif';
         ctx.fillText(snake.face, snake.x, snake.y + headBob);
         ctx.shadowBlur  = 0;
         ctx.shadowColor = 'transparent';
@@ -765,7 +1076,7 @@
 
       ctx.restore(); // end camera transform
 
-      // ── Death vignette (screen space) ─────────────────
+      // ── Death vignette ────────────────────────────────
       if (phase === 'dead') {
         deathA = Math.min(0.40, deathA + 0.015);
         ctx.globalAlpha = deathA;
@@ -774,12 +1085,11 @@
         ctx.globalAlpha = 1;
       }
 
-      // ── Virtual joystick (screen space, no camera) ────
+      // ── Virtual joystick ─────────────────────────────
       if (joystick.active && phase === 'playing') {
         ctx.save();
         ctx.globalAlpha = 1;
 
-        // Outer ring
         ctx.beginPath();
         ctx.arc(joystick.cx, joystick.cy, CFG.joystickR, 0, Math.PI * 2);
         ctx.fillStyle   = 'rgba(255, 255, 255, 0.04)';
@@ -788,7 +1098,6 @@
         ctx.lineWidth   = 1.5;
         ctx.stroke();
 
-        // Line from centre to knob
         ctx.beginPath();
         ctx.moveTo(joystick.cx, joystick.cy);
         ctx.lineTo(joystick.curX, joystick.curY);
@@ -796,7 +1105,6 @@
         ctx.lineWidth   = 1.5;
         ctx.stroke();
 
-        // Inner knob
         ctx.beginPath();
         ctx.arc(joystick.curX, joystick.curY, CFG.joystickKnob, 0, Math.PI * 2);
         ctx.fillStyle   = 'rgba(255, 255, 255, 0.28)';
@@ -814,7 +1122,6 @@
     // ═══════════════════════════════════════════════════
 
     let prevTime = 0;
-
     function loop(now) {
       if (prevTime === 0) { prevTime = now; requestAnimationFrame(loop); return; }
       const dt = Math.min((now - prevTime) / 1000, 0.05);
@@ -828,33 +1135,33 @@
     //  BUTTON HANDLERS
     // ═══════════════════════════════════════════════════
 
-    function onStart(e) {
-      e.preventDefault();
-      if (restartLock) return;
-      beginGame();
+    function bind(el, fn) {
+      el.addEventListener('click',    e => { e.preventDefault(); fn(); });
+      el.addEventListener('touchend', e => { e.preventDefault(); fn(); }, { passive: false });
     }
 
-    function onRestart(e) {
-      e.preventDefault();
-      if (restartLock) return;
-      beginGame();
-    }
-
-    btnStart.addEventListener('click',    onStart);
-    btnStart.addEventListener('touchend', onStart, { passive: false });
-    btnPlay.addEventListener('click',    onRestart);
-    btnPlay.addEventListener('touchend', onRestart, { passive: false });
+    bind(btnStart,    () => { if (!restartLock) beginGame(); });
+    bind(btnRestart,  () => { if (!restartLock) beginGame(); });
+    bind(btnPause,    () => pauseGame());
+    bind(btnResume,   () => resumeGame());
+    bind(btnQuit,     () => quitToMenu());
+    bind(btnToMenu,   () => quitToMenu());
+    bind(btnColl,     () => { buildCollectionGrid(); showPanel(panelColl); });
+    bind(btnSett,     () => { buildHeadGrid();        showPanel(panelSett); });
+    bind(btnCollBack, () => showPanel(panelStart));
+    bind(btnSettBack, () => showPanel(panelStart));
 
     // ═══════════════════════════════════════════════════
-    //  BOOT — idle background, then wait for Start tap
+    //  BOOT
     // ═══════════════════════════════════════════════════
 
+    loadPersist();
+    startFace.textContent = savedHead;
     initIdleSnake();
     initIdleWorld();
 
-    // Ensure correct panel visibility
+    ALL_PANELS.forEach(p => { p.style.display = 'none'; });
     panelStart.style.display = '';
-    panelOver.style.display  = 'none';
     overlay.classList.add('show');
 
     requestAnimationFrame(loop);
