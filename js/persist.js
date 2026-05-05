@@ -11,8 +11,9 @@ import { state }        from './state.js';
 import { FACE_POOL }    from './data.js';
 import { firstGrapheme } from './utils.js';
 
-const LS_HEAD = 'emojiDrift_head';
-const LS_COLL = 'emojiDrift_collection';
+const LS_HEAD   = 'emojiDrift_head';
+const LS_COLL   = 'emojiDrift_collection';
+const LS_LEGEND = 'emojiDrift_legendary';
 
 let   _dirty    = false;
 let   _flushId  = 0;
@@ -33,6 +34,10 @@ export function loadPersist() {
     const raw = localStorage.getItem(LS_COLL);
     state.globalCollection = raw ? new Set(JSON.parse(raw)) : new Set();
   } catch { state.globalCollection = new Set(); }
+
+  try {
+    state.legendaryMode = localStorage.getItem(LS_LEGEND) === '1';
+  } catch { state.legendaryMode = false; }
 }
 
 /** Mark data as changed and schedule a flush within 400 ms. */
@@ -47,8 +52,9 @@ function _flush() {
   if (!_dirty) return;
   _dirty = false;
   try {
-    localStorage.setItem(LS_HEAD, state.savedHead);
-    localStorage.setItem(LS_COLL, JSON.stringify([...state.globalCollection]));
+    localStorage.setItem(LS_HEAD,   state.savedHead);
+    localStorage.setItem(LS_COLL,   JSON.stringify([...state.globalCollection]));
+    localStorage.setItem(LS_LEGEND, state.legendaryMode ? '1' : '0');
   } catch {}
 }
 

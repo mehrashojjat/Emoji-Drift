@@ -15,7 +15,8 @@ import { CFG }                        from './config.js';
 import { state, joystick,
          trailPush, trailReset,
          trailGetX, trailGetY,
-         trailLen, TRAIL_SIZE }       from './state.js';
+         trailLen, TRAIL_SIZE,
+         gridState, gridReset }       from './state.js';
 import { dist2 }                      from './utils.js';
 import { loadPersist, savePersist,
          flushPersist }               from './persist.js';
@@ -27,7 +28,7 @@ import {
   hudEl, hudHead, hudLen,
   goIcon, goStat, hintEl, btnPause,
   showPanel, hideOverlay,
-  initHeadInput, initIdleSnake, initIdleWorld,
+  initHeadInput, initLegendaryToggle, initIdleSnake, initIdleWorld,
   bindButtons,
   panelStart, panelOver, panelPause,
   startFace,
@@ -48,6 +49,16 @@ function update(dt) {
 
   if (state.phase !== 'playing') return;
 
+  if (state.legendaryMode) {
+    updateLegendary(dt);
+  } else {
+    updateSmooth(dt);
+  }
+}
+
+// ── Smooth (normal) update ────────────────────────────────────────────────────
+
+function updateSmooth(dt) {
   // ── Direction interpolation ──────────────────────────────────────────────
   const sn = state.snake;
   sn.vx += (sn.tx - sn.vx) * CFG.turnSpeed * dt;
@@ -66,8 +77,6 @@ function update(dt) {
   sn.y += sn.vy * speed * dt;
 
   // ── Record trail point (skip if barely moved) ─────────────────────────────
-  // Threshold: 4 px² (2 px distance).  Prevents bloating the trail when the
-  // snake is nearly stationary, which reduces the work in the cumul loop.
   const tLen = trailLen();
   if (tLen === 0 ||
       (sn.x - trailGetX(0)) * (sn.x - trailGetX(0)) +
@@ -113,7 +122,7 @@ function update(dt) {
     if (dist2(sn.x, sn.y, o.x, o.y) < cd2) {
       state.collectedTypes.add(o.e);
       state.globalCollection.add(o.e);
-      savePersist();                         // debounced — at most once per 400 ms
+      savePersist();
       if (o.e === '👺') {
         sn.face = '👺';
         hudHead.textContent = '👺';
@@ -134,6 +143,100 @@ function update(dt) {
         triggerDeath();
         return;
       }
+    }
+  }
+
+  // ── Periodic spawn / despawn ──────────────────────────────────────────────
+  state.spawnTick += dt;
+  if (state.spawnTick >= 0.5) {
+    state.spawnTick = 0;
+    despawnWorld();
+    spawnWorld(false);
+  }
+}
+
+// ── Legendary (grid) update ───────────────────────────────────────────────────
+
+function updateLegendary(dt) {
+  const sn = state.snake;
+  const gs = gridState;
+  const GS = CFG.gridSize;
+
+  // ── Accumulate step timer ─────────────────────────────────────────────────
+  gs.timer += dt;
+  const interval = Math.max(
+    CFG.gridMinInterval,
+    CFG.gridInterval - sn.len * 0.001
+  );
+  if (gs.timer < interval) {
+    // Still waiting for the next step — only handle spawn/despawn timer.
+    state.spawnTick += dt;
+    if (state.spawnTick >= 0.5) {
+      state.spawnTick = 0;
+      despawnWorld();
+      spawnWorld(false);
+    }
+    return;
+  }
+  gs.timer -= interval;
+
+  // ── Apply queued direction (reject 180° reversals) ────────────────────────
+  if (!(gs.ndx === -gs.dx && gs.ndy === -gs.dy)) {
+    gs.dx = gs.ndx;
+    gs.dy = gs.ndy;
+  }
+
+  // ── Advance head one grid cell ────────────────────────────────────────────
+  gs.x += gs.dx;
+  gs.y += gs.dy;
+
+  // Update world-space snake position.
+  sn.x = gs.x * GS;
+  sn.y = gs.y * GS;
+
+  // ── Record position in history ────────────────────────────────────────────
+  gs.history.unshift({ x: gs.x, y: gs.y });
+  // Keep only as many entries as needed for all body segments.
+  const needed = sn.segs.length + 2;
+  if (gs.history.length > needed) gs.history.length = needed;
+
+  // ── Update body segment world positions from history ──────────────────────
+  for (let i = 0; i < sn.segs.length; i++) {
+    const hi = Math.min(i + 1, gs.history.length - 1);
+    sn.segs[i].x = gs.history[hi].x * GS;
+    sn.segs[i].y = gs.history[hi].y * GS;
+  }
+
+  // ── Collect objects ───────────────────────────────────────────────────────
+  for (let i = state.world.length - 1; i >= 0; i--) {
+    const o = state.world[i];
+    if (o.gx === gs.x && o.gy === gs.y) {
+      state.collectedTypes.add(o.e);
+      state.globalCollection.add(o.e);
+      savePersist();
+      if (o.e === '👺') {
+        sn.face = '👺';
+        hudHead.textContent = '👺';
+      }
+      sn.segs.push({ x: o.x, y: o.y, e: o.e, rarity: o.rarity });
+      sn.len++;
+      state.world.splice(i, 1);
+      hudLen.textContent = sn.len;
+      // Extend history so the new segment has a valid position immediately.
+      if (gs.history.length <= sn.segs.length) {
+        gs.history.push(gs.history[gs.history.length - 1]);
+      }
+      break;
+    }
+  }
+
+  // ── Self-collision ────────────────────────────────────────────────────────
+  // Skip the first few segments that are directly adjacent to the head.
+  const skipGrid = Math.min(CFG.skipSegs, sn.segs.length);
+  for (let i = skipGrid; i < sn.segs.length; i++) {
+    if (sn.segs[i].x === sn.x && sn.segs[i].y === sn.y) {
+      triggerDeath();
+      return;
     }
   }
 
@@ -190,9 +293,20 @@ function beginGame() {
   hintEl.classList.add('visible');
   btnPause.classList.add('visible');
 
-  // Dense pre-fill so body segments are placed correctly from frame 1.
-  trailReset();
-  for (let i = 2999; i >= 0; i--) trailPush(-i, 0);
+  // Update hint text for the active mode.
+  hintEl.textContent = state.legendaryMode
+    ? '✦ Swipe or arrow keys to steer ✦'
+    : '✦ Touch and drag to steer ✦';
+
+  if (state.legendaryMode) {
+    // Legendary mode: reset grid state; no trail pre-fill needed.
+    gridReset();
+    trailReset();
+  } else {
+    // Dense pre-fill so body segments are placed correctly from frame 1.
+    trailReset();
+    for (let i = 2999; i >= 0; i--) trailPush(-i, 0);
+  }
 
   state.snake = {
     x: 0, y: 0,
@@ -246,6 +360,7 @@ function quitToMenu() {
 loadPersist();
 startFace.textContent = state.savedHead;
 initHeadInput();
+initLegendaryToggle();
 initIdleSnake();
 initIdleWorld();
 

@@ -19,17 +19,18 @@ export const goStat      = document.getElementById('go-stat');
 export const hintEl      = document.getElementById('hint');
 export const btnPause    = document.getElementById('btn-pause');
 
-const overlay     = document.getElementById('overlay');
-const panelStart  = document.getElementById('panel-start');
-const panelOver   = document.getElementById('panel-over');
-const panelPause  = document.getElementById('panel-pause');
-const panelColl   = document.getElementById('panel-collection');
-const panelSett   = document.getElementById('panel-settings');
-const panelDetail = document.getElementById('panel-emoji-detail');
-const startFace   = document.getElementById('start-face');
-const collCount   = document.getElementById('coll-count');
-const collGrid    = document.getElementById('coll-grid');
-const headInput   = document.getElementById('head-input');
+const overlay       = document.getElementById('overlay');
+const panelStart    = document.getElementById('panel-start');
+const panelOver     = document.getElementById('panel-over');
+const panelPause    = document.getElementById('panel-pause');
+const panelColl     = document.getElementById('panel-collection');
+const panelSett     = document.getElementById('panel-settings');
+const panelDetail   = document.getElementById('panel-emoji-detail');
+const startFace     = document.getElementById('start-face');
+const collCount     = document.getElementById('coll-count');
+const collGrid      = document.getElementById('coll-grid');
+const headInput     = document.getElementById('head-input');
+const legendaryToggle = document.getElementById('legendary-toggle');
 const detailEmojiChar   = document.getElementById('detail-emoji-char');
 const detailEmojiName   = document.getElementById('detail-emoji-name');
 const detailRarityBadge = document.getElementById('detail-rarity-badge');
@@ -61,6 +62,16 @@ export function initHeadInput() {
   });
   headInput.addEventListener('compositionend', () => {
     headInput.dispatchEvent(new Event('input'));
+  });
+}
+
+// ── Settings: legendary mode toggle ─────────────────────────────────────────
+
+export function initLegendaryToggle() {
+  legendaryToggle.checked = state.legendaryMode;
+  legendaryToggle.addEventListener('change', () => {
+    state.legendaryMode = legendaryToggle.checked;
+    savePersist();
   });
 }
 
@@ -160,6 +171,7 @@ export function bindButtons({ beginGame, pauseGame, resumeGame, quitToMenu }) {
   bind(btnColl,  () => { buildCollectionGrid(); showPanel(panelColl); });
   bind(btnSett,  () => {
     headInput.value = state.savedHead;
+    legendaryToggle.checked = state.legendaryMode;
     showPanel(panelSett);
     setTimeout(() => headInput.focus(), 50);
   });
@@ -202,4 +214,4 @@ export function initIdleSnake() {
   };
 }
 
-export { panelStart, panelOver, panelPause, panelColl, panelSett, startFace, headInput };
+export { panelStart, panelOver, panelPause, panelColl, panelSett, startFace, headInput, legendaryToggle };
