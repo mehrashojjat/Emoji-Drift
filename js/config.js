@@ -37,7 +37,7 @@ export const CFG = {
   // World-space pixels per grid cell.
   gridSize        : 40,
   // Seconds between grid steps at the start of a game.
-  gridInterval    : 0.20,
+  gridInterval    : 0.80,
   // Minimum step interval (fastest speed) in seconds.
-  gridMinInterval : 0.08,
+  gridMinInterval : 0.32,
 };

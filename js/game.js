@@ -207,6 +207,18 @@ function updateLegendary(dt) {
     sn.segs[i].y = gs.history[hi].y * GS;
   }
 
+  // ── Self-collision ────────────────────────────────────────────────────────
+  // Must run BEFORE collection so the newly-added segment (placed at the head
+  // position) is not mistakenly compared against the head.
+  // Skip the first few segments that are directly adjacent to the head.
+  const skipGrid = Math.min(CFG.skipSegs, sn.segs.length);
+  for (let i = skipGrid; i < sn.segs.length; i++) {
+    if (sn.segs[i].x === sn.x && sn.segs[i].y === sn.y) {
+      triggerDeath();
+      return;
+    }
+  }
+
   // ── Collect objects ───────────────────────────────────────────────────────
   for (let i = state.world.length - 1; i >= 0; i--) {
     const o = state.world[i];
@@ -227,16 +239,6 @@ function updateLegendary(dt) {
         gs.history.push(gs.history[gs.history.length - 1]);
       }
       break;
-    }
-  }
-
-  // ── Self-collision ────────────────────────────────────────────────────────
-  // Skip the first few segments that are directly adjacent to the head.
-  const skipGrid = Math.min(CFG.skipSegs, sn.segs.length);
-  for (let i = skipGrid; i < sn.segs.length; i++) {
-    if (sn.segs[i].x === sn.x && sn.segs[i].y === sn.y) {
-      triggerDeath();
-      return;
     }
   }
 
