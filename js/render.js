@@ -72,7 +72,7 @@ export function render(now) {
   if (legendary) {
     const gridLeft  = Math.floor((sx - W * 0.5) / GS) * GS;
     const gridTop   = Math.floor((sy - H * 0.5) / GS) * GS;
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
     ctx.lineWidth   = 1;
     ctx.beginPath();
     for (let gx = gridLeft; gx <= sx + W * 0.5 + GS; gx += GS) {
@@ -141,19 +141,12 @@ export function render(now) {
     const clipT = sy - H * 0.5 - CFG.bodySize;
     const clipB = sy + H * 0.5 + CFG.bodySize;
 
-    // Head glow — circle in normal mode, rounded square in legendary mode.
+    // Head glow — circle in normal mode, slightly larger circle in legendary mode.
     ctx.globalAlpha = 0.50;
     ctx.fillStyle   = state.snake.face === '👺' ? '#facc15' : 'hsl(270, 100%, 72%)';
-    if (legendary) {
-      const hw = GS * 0.46;
-      ctx.beginPath();
-      ctx.roundRect(sx - hw, sy - hw, hw * 2, hw * 2, 6);
-      ctx.fill();
-    } else {
-      ctx.beginPath();
-      ctx.arc(sx, sy + headBob, 28, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.beginPath();
+    ctx.arc(sx, sy, legendary ? GS * 0.46 : 28, 0, Math.PI * 2);
+    ctx.fill();
 
     // Body glow (back-to-front; skip off-screen segments)
     for (let i = nSegs - 1; i >= 0; i--) {
@@ -164,16 +157,9 @@ export function render(now) {
       const hue    = (40 + i * 20) % 360;
       ctx.globalAlpha = 0.22 * fade;
       ctx.fillStyle   = 'hsl(' + hue + ', 100%, 65%)';
-      if (legendary) {
-        const hw = GS * 0.40;
-        ctx.beginPath();
-        ctx.roundRect(s.x - hw, s.y - hw, hw * 2, hw * 2, 4);
-        ctx.fill();
-      } else {
-        ctx.beginPath();
-        ctx.arc(s.x, s.y + wobble, 18, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.beginPath();
+      ctx.arc(s.x, s.y + wobble, legendary ? GS * 0.40 : 18, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     // Body emojis (back-to-front; skip off-screen segments)

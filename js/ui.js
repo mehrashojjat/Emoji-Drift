@@ -71,6 +71,8 @@ export function initLegendaryToggle() {
   legendaryToggle.checked = state.legendaryMode;
   legendaryToggle.addEventListener('change', () => {
     state.legendaryMode = legendaryToggle.checked;
+    // Write immediately so a page reload always reflects the current value.
+    try { localStorage.setItem('emojiDrift_legendary', state.legendaryMode ? '1' : '0'); } catch {}
     savePersist();
   });
 }
