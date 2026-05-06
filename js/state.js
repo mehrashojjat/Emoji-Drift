@@ -75,7 +75,38 @@ export const state = {
   collectedTypes : new Set(),  // unique emoji types collected this session
   savedHead      : null,       // persisted head emoji
   globalCollection: new Set(), // all emojis ever collected (loaded from localStorage)
+
+  legendaryMode  : false,      // grid-based snake mode
 };
+
+// ── Grid state (Legendary Mode) ──────────────────────────────────────────────
+
+/**
+ * Holds all mutable state for legendary (grid) mode movement.
+ * x/y are grid-cell coordinates (multiply by CFG.gridSize for world space).
+ * dx/dy is the current step direction; ndx/ndy is the queued next direction.
+ * history[0] is always the current head grid position; history[i+1] feeds body
+ * segment i its world-space position.
+ */
+export const gridState = {
+  x    : 0, y    : 0,
+  dx   : 1, dy   : 0,
+  ndx  : 1, ndy  : 0,
+  timer: 0,
+  history: [],
+};
+
+/** Reset grid state for the start of a new legendary-mode game. */
+export function gridReset() {
+  gridState.x       = 0;
+  gridState.y       = 0;
+  gridState.dx      = 1;
+  gridState.dy      = 0;
+  gridState.ndx     = 1;
+  gridState.ndy     = 0;
+  gridState.timer   = 0;
+  gridState.history = [{ x: 0, y: 0 }];
+}
 
 // ── Virtual joystick state ───────────────────────────────────────────────────
 export const joystick = {

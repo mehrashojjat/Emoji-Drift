@@ -32,4 +32,12 @@ export const CFG = {
   // off-screen buffers. 2 is enough quality; 3 is rarely perceptible and costs
   // ~2.25× the fill-rate of 2.
   dprCap      : 2,
+
+  // ── Legendary (grid) mode ──────────────────────────────────────────────────
+  // World-space pixels per grid cell.
+  gridSize        : 40,
+  // Seconds between grid steps at the start of a game.
+  gridInterval    : 0.40,
+  // Minimum step interval (fastest speed) in seconds.
+  gridMinInterval : 0.16,
 };

@@ -18,7 +18,6 @@
 import { CFG }                         from './config.js';
 import { state, joystick }             from './state.js';
 import { RARITY_COLORS }               from './data.js';
-
 export const canvas = document.getElementById('canvas');
 export const ctx    = canvas.getContext('2d');
 
@@ -52,6 +51,8 @@ window.addEventListener('resize', resize);
 export function render(now) {
   const { W, H, renderR2 } = screen;
   const t  = now * 0.001;
+  const legendary = state.legendaryMode;
+  const GS = CFG.gridSize;
 
   const sx = state.snake.x;
   const sy = state.snake.y;
@@ -67,11 +68,72 @@ export function render(now) {
   ctx.save();
   ctx.translate(cx, cy);
 
+  // ── World-anchored star field ───────────────────────────────────────────────
+  // Dots are placed at deterministic world-space positions derived from a
+  // per-cell hash so they never flicker and always scroll with the camera,
+  // giving a clear sense of movement regardless of mode.
+  {
+    // Legendary: one potential dot per grid cell (same spacing as the grid).
+    // Normal:    coarser spacing with larger jitter for an open starfield.
+    const DOT_GRID  = legendary ? GS : 80;
+    const jitterAmt = legendary ? 0.28 : 0.62;  // fraction of DOT_GRID
+
+    const cLeft  = Math.floor((sx - W * 0.5) / DOT_GRID) - 1;
+    const cRight = Math.ceil ((sx + W * 0.5) / DOT_GRID) + 1;
+    const cTop   = Math.floor((sy - H * 0.5) / DOT_GRID) - 1;
+    const cBot   = Math.ceil ((sy + H * 0.5) / DOT_GRID) + 1;
+
+    ctx.fillStyle   = '#ffffff';
+    ctx.globalAlpha = 0.18;
+    ctx.beginPath();
+    for (let gi = cLeft; gi <= cRight; gi++) {
+      for (let gj = cTop; gj <= cBot; gj++) {
+        // Three independent hash values from the cell index pair.
+        const h1 = Math.sin(gi * 127.1  + gj * 311.7) * 43758.5453;
+        const h2 = Math.sin(gi * 269.5  + gj * 183.3) * 28571.1337;
+        const h3 = Math.sin(gi * 419.2  + gj * 371.9) * 12345.6789;
+        const f1 = h1 - Math.floor(h1);   // [0, 1)
+        const f2 = h2 - Math.floor(h2);
+        const f3 = h3 - Math.floor(h3);
+        // Skip ~30 % of cells to keep the pattern sparse and natural.
+        if (f3 < 0.30) continue;
+        // Cell-centre offset keeps dots inside cells in legendary mode.
+        const cellCx = gi * DOT_GRID + (legendary ? DOT_GRID * 0.5 : 0);
+        const cellCy = gj * DOT_GRID + (legendary ? DOT_GRID * 0.5 : 0);
+        const wx = cellCx + (f1 - 0.5) * DOT_GRID * jitterAmt;
+        const wy = cellCy + (f2 - 0.5) * DOT_GRID * jitterAmt;
+        const r  = 0.55 + f3 * 1.15;   // radius 0.55 – 1.70 px
+        ctx.moveTo(wx + r, wy);
+        ctx.arc(wx, wy, r, 0, Math.PI * 2);
+      }
+    }
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Grid lines (legendary mode only) ───────────────────────────────────────
+  if (legendary) {
+    const gridLeft  = Math.floor((sx - W * 0.5) / GS) * GS;
+    const gridTop   = Math.floor((sy - H * 0.5) / GS) * GS;
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    for (let gx = gridLeft; gx <= sx + W * 0.5 + GS; gx += GS) {
+      ctx.moveTo(gx, gridTop - GS);
+      ctx.lineTo(gx, sy + H * 0.5 + GS);
+    }
+    for (let gy = gridTop; gy <= sy + H * 0.5 + GS; gy += GS) {
+      ctx.moveTo(gridLeft - GS, gy);
+      ctx.lineTo(sx + W * 0.5 + GS, gy);
+    }
+    ctx.stroke();
+  }
+
   // ── Rare+ aura circles under world objects ──────────────────────────────────
   for (const o of state.world) {
     if (o.rarity === 'common' || o.rarity === 'uncommon') continue;
     if ((o.x - sx) * (o.x - sx) + (o.y - sy) * (o.y - sy) > renderR2) continue;
-    const bob   = Math.sin(t * o.bobSpd + o.bob) * 3.5;
+    const bob   = legendary ? 0 : Math.sin(t * o.bobSpd + o.bob) * 3.5;
     const pulse = o.rarity === 'legendary'
       ? 0.45 + 0.45 * Math.abs(Math.sin(t * 3.5))
       : 0.28;
@@ -83,8 +145,6 @@ export function render(now) {
   }
 
   // ── World objects — semi-transparent, soft shadow ──────────────────────────
-  // (ctx.filter blur removed; per-object shadowBlur gives a similar soft look
-  //  at much lower GPU cost, especially on mobile.)
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
   ctx.font         = CFG.fontSize + 'px sans-serif';
@@ -93,7 +153,7 @@ export function render(now) {
 
   for (const o of state.world) {
     if ((o.x - sx) * (o.x - sx) + (o.y - sy) * (o.y - sy) > renderR2) continue;
-    const bob = Math.sin(t * o.bobSpd + o.bob) * 3.5;
+    const bob = legendary ? 0 : Math.sin(t * o.bobSpd + o.bob) * 3.5;
     ctx.globalAlpha = o.alpha * o.scale;
     if (o.scale < 0.999) {
       ctx.save();
@@ -116,7 +176,7 @@ export function render(now) {
     ctx.globalAlpha  = 1;
 
     const nSegs   = state.snake.segs.length;
-    const headBob = Math.sin(t * 4.5) * 2.2;
+    const headBob = legendary ? 0 : Math.sin(t * 4.5) * 2.2;
 
     // Screen-space clip bounds (world coordinates) for body cull.
     const clipL = sx - W * 0.5 - CFG.bodySize;
@@ -124,24 +184,24 @@ export function render(now) {
     const clipT = sy - H * 0.5 - CFG.bodySize;
     const clipB = sy + H * 0.5 + CFG.bodySize;
 
-    // Head glow
+    // Head glow — circle in normal mode, slightly larger circle in legendary mode.
     ctx.globalAlpha = 0.50;
     ctx.fillStyle   = state.snake.face === '👺' ? '#facc15' : 'hsl(270, 100%, 72%)';
     ctx.beginPath();
-    ctx.arc(sx, sy + headBob, 28, 0, Math.PI * 2);
+    ctx.arc(sx, sy, legendary ? GS * 0.46 : 28, 0, Math.PI * 2);
     ctx.fill();
 
     // Body glow (back-to-front; skip off-screen segments)
     for (let i = nSegs - 1; i >= 0; i--) {
       const s = state.snake.segs[i];
       if (s.x < clipL || s.x > clipR || s.y < clipT || s.y > clipB) continue;
-      const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
+      const wobble = legendary ? 0 : Math.sin(t * 3.5 + i * 0.45) * 1.8;
       const fade   = 1 - (i / Math.max(1, nSegs)) * 0.55;
       const hue    = (40 + i * 20) % 360;
       ctx.globalAlpha = 0.22 * fade;
       ctx.fillStyle   = 'hsl(' + hue + ', 100%, 65%)';
       ctx.beginPath();
-      ctx.arc(s.x, s.y + wobble, 18, 0, Math.PI * 2);
+      ctx.arc(s.x, s.y + wobble, legendary ? GS * 0.40 : 18, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -150,7 +210,7 @@ export function render(now) {
     for (let i = nSegs - 1; i >= 0; i--) {
       const s = state.snake.segs[i];
       if (s.x < clipL || s.x > clipR || s.y < clipT || s.y > clipB) continue;
-      const wobble = Math.sin(t * 3.5 + i * 0.45) * 1.8;
+      const wobble = legendary ? 0 : Math.sin(t * 3.5 + i * 0.45) * 1.8;
       const frac   = 1 - i / Math.max(1, nSegs);
       const hue    = (40 + i * 20) % 360;
       ctx.shadowColor = 'hsl(' + hue + ', 100%, 70%)';
@@ -174,8 +234,6 @@ export function render(now) {
   ctx.restore(); // end camera transform
 
   // ── Render-radius vignette ─────────────────────────────────────────────────
-  // Draws a subtle dark ring that fades out at the edge of CFG.renderR,
-  // reinforcing the "field of view" feel.
   if (state.phase !== 'start') {
     const scrCx = W * 0.5;
     const scrCy = H * 0.5;
@@ -198,8 +256,8 @@ export function render(now) {
     ctx.globalAlpha = 1;
   }
 
-  // ── Virtual joystick ───────────────────────────────────────────────────────
-  if (joystick.active && state.phase === 'playing') {
+  // ── Virtual joystick (normal mode only) ────────────────────────────────────
+  if (joystick.active && state.phase === 'playing' && !legendary) {
     ctx.save();
     ctx.globalAlpha = 1;
 
