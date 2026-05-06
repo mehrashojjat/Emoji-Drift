@@ -68,6 +68,49 @@ export function render(now) {
   ctx.save();
   ctx.translate(cx, cy);
 
+  // ── World-anchored star field ───────────────────────────────────────────────
+  // Dots are placed at deterministic world-space positions derived from a
+  // per-cell hash so they never flicker and always scroll with the camera,
+  // giving a clear sense of movement regardless of mode.
+  {
+    // Legendary: one potential dot per grid cell (same spacing as the grid).
+    // Normal:    coarser spacing with larger jitter for an open starfield.
+    const DOT_GRID  = legendary ? GS : 80;
+    const jitterAmt = legendary ? 0.28 : 0.62;  // fraction of DOT_GRID
+
+    const cLeft  = Math.floor((sx - W * 0.5) / DOT_GRID) - 1;
+    const cRight = Math.ceil ((sx + W * 0.5) / DOT_GRID) + 1;
+    const cTop   = Math.floor((sy - H * 0.5) / DOT_GRID) - 1;
+    const cBot   = Math.ceil ((sy + H * 0.5) / DOT_GRID) + 1;
+
+    ctx.fillStyle   = '#ffffff';
+    ctx.globalAlpha = 0.18;
+    ctx.beginPath();
+    for (let gi = cLeft; gi <= cRight; gi++) {
+      for (let gj = cTop; gj <= cBot; gj++) {
+        // Three independent hash values from the cell index pair.
+        const h1 = Math.sin(gi * 127.1  + gj * 311.7) * 43758.5453;
+        const h2 = Math.sin(gi * 269.5  + gj * 183.3) * 28571.1337;
+        const h3 = Math.sin(gi * 419.2  + gj * 371.9) * 12345.6789;
+        const f1 = h1 - Math.floor(h1);   // [0, 1)
+        const f2 = h2 - Math.floor(h2);
+        const f3 = h3 - Math.floor(h3);
+        // Skip ~30 % of cells to keep the pattern sparse and natural.
+        if (f3 < 0.30) continue;
+        // Cell-centre offset keeps dots inside cells in legendary mode.
+        const cellCx = gi * DOT_GRID + (legendary ? DOT_GRID * 0.5 : 0);
+        const cellCy = gj * DOT_GRID + (legendary ? DOT_GRID * 0.5 : 0);
+        const wx = cellCx + (f1 - 0.5) * DOT_GRID * jitterAmt;
+        const wy = cellCy + (f2 - 0.5) * DOT_GRID * jitterAmt;
+        const r  = 0.55 + f3 * 1.15;   // radius 0.55 – 1.70 px
+        ctx.moveTo(wx + r, wy);
+        ctx.arc(wx, wy, r, 0, Math.PI * 2);
+      }
+    }
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
   // ── Grid lines (legendary mode only) ───────────────────────────────────────
   if (legendary) {
     const gridLeft  = Math.floor((sx - W * 0.5) / GS) * GS;
