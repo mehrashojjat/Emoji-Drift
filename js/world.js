@@ -19,8 +19,8 @@ export function spawnWorld(initial) {
     const occupied = new Set();
     for (const o of state.world) occupied.add(o.gx + ',' + o.gy);
     // Also mark the snake's head cell.
-    const hx = Math.round(state.snake.x / GS);
-    const hy = Math.round(state.snake.y / GS);
+    const hx = Math.floor(state.snake.x / GS);
+    const hy = Math.floor(state.snake.y / GS);
     occupied.add(hx + ',' + hy);
 
     while (state.world.length < target && tries++ < 600) {
@@ -41,8 +41,8 @@ export function spawnWorld(initial) {
       state.world.push({
         gx,
         gy,
-        x     : gx * GS,
-        y     : gy * GS,
+        x     : gx * GS + GS * 0.5,
+        y     : gy * GS + GS * 0.5,
         e     : item.e,
         rarity: item.rarity,
         alpha : initial ? Math.random() * 0.5 + 0.1 : 0,

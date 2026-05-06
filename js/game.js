@@ -190,9 +190,9 @@ function updateLegendary(dt) {
   gs.x += gs.dx;
   gs.y += gs.dy;
 
-  // Update world-space snake position.
-  sn.x = gs.x * GS;
-  sn.y = gs.y * GS;
+  // Update world-space snake position (centre of grid cell).
+  sn.x = gs.x * GS + GS * 0.5;
+  sn.y = gs.y * GS + GS * 0.5;
 
   // ── Record position in history ────────────────────────────────────────────
   gs.history.unshift({ x: gs.x, y: gs.y });
@@ -203,8 +203,8 @@ function updateLegendary(dt) {
   // ── Update body segment world positions from history ──────────────────────
   for (let i = 0; i < sn.segs.length; i++) {
     const hi = Math.min(i + 1, gs.history.length - 1);
-    sn.segs[i].x = gs.history[hi].x * GS;
-    sn.segs[i].y = gs.history[hi].y * GS;
+    sn.segs[i].x = gs.history[hi].x * GS + GS * 0.5;
+    sn.segs[i].y = gs.history[hi].y * GS + GS * 0.5;
   }
 
   // ── Self-collision ────────────────────────────────────────────────────────
@@ -311,7 +311,8 @@ function beginGame() {
   }
 
   state.snake = {
-    x: 0, y: 0,
+    x: state.legendaryMode ? CFG.gridSize * 0.5 : 0,
+    y: state.legendaryMode ? CFG.gridSize * 0.5 : 0,
     vx: 1, vy: 0,
     tx: 1, ty: 0,
     face: state.savedHead,
